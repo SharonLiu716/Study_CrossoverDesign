@@ -1,0 +1,590 @@
+set.seed(206)
+q=5000  #模擬次數
+#####建立空向量或空矩陣#######
+vector_beta10=c();vector_beta11=c();vector_beta20=c();vector_beta21=c()
+vector_beta30=c();vector_beta31=c();vector_beta40=c();vector_beta41=c()
+p11_hat=c();p12_hat=c();p21_hat=c();p22_hat=c()
+p31_hat=c();p32_hat=c();p41_hat=c();p42_hat=c()
+A0_h=matrix(c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),ncol = 4)
+B0_h=matrix(c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),ncol = 4)
+A0=matrix(c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),ncol = 4)
+B0=matrix(c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),ncol = 4)
+nai00=matrix(c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),ncol = 4)
+adj00=matrix(c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),ncol = 4)
+nai11=0;adj11=0;nai22=0;adj22=0;nai33=0;adj33=0;nai44=0;adj44=0
+NS=c();RS=c();NS01=c();RS01=c();NS02=c();RS02=c();
+NS03=c();RS03=c();NS04=c();RS04=c()
+w=c();w0=c()
+wtp=c();wtp1=c();wtp2=c();wtp3=c();wtp4=c()
+ci1=matrix(ncol = 2,nrow = q);ci2=matrix(ncol = 2,nrow = q)
+ci3=matrix(ncol = 2,nrow = q);ci4=matrix(ncol = 2,nrow = q)
+ci01=matrix(ncol = 2,nrow = q);ci02=matrix(ncol = 2,nrow = q)
+ci03=matrix(ncol = 2,nrow = q);ci04=matrix(ncol = 2,nrow = q)
+b10hat=c();b11hat=c()
+b20hat=c();b21hat=c()
+b30hat=c();b31hat=c()
+b40hat=c();b41hat=c()
+cw1=matrix(ncol = 2,nrow = q);cw2=matrix(ncol = 2,nrow = q)
+cw3=matrix(ncol = 2,nrow = q);cw4=matrix(ncol = 2,nrow = q)
+pr1=c();pr2=c();pr3=c();pr4=c();pr01=c();pr02=c();pr03=c();pr04=c()
+#####模擬######
+n=500   #n為樣本數
+q0=1
+rr=0   #rr為新舊藥(ro-xz)之相關性
+r=0-rr  #ro-xx , ro-zz 之相關性
+while(q0 <= q){  
+  ###資料生成#######
+  #各參數真值;1234為疾病種類;0為截距項;1為斜率項
+  beta10=0.1;beta20=0.2;beta30=0.3;beta40=0.4
+  beta11=0;beta21=0;beta31=0;beta41=0
+  #計算機率值;1為服用舊藥;2為服用新藥
+  p11=exp(beta10)/(1+exp(beta10)) 
+  p21=exp(beta20)/(1+exp(beta20))
+  p31=exp(beta30)/(1+exp(beta30))
+  p41=exp(beta40)/(1+exp(beta40))
+  p12=exp(beta10+beta11)/(1+exp(beta10+beta11)) 
+  p22=exp(beta20+beta21)/(1+exp(beta20+beta21))
+  p32=exp(beta30+beta31)/(1+exp(beta30+beta31))
+  p42=exp(beta40+beta41)/(1+exp(beta40+beta41))
+  
+  y11=c();y21=c();y31=c();y41=c();y12=c();y22=c();y32=c();y42=c() 
+  
+  library(MASS)
+  mu=c(0,0,0,0,0,0,0,0)   #mu為生成標準常態資料之期望值
+  matr = matrix(c(0,0,0,0,r,0,0,0,
+                  0,0,0,0,0,r,0,0,
+                  0,0,0,0,0,0,r,0,
+                  0,0,0,0,0,0,0,r,
+                  r,0,0,0,0,0,0,0,
+                  0,r,0,0,0,0,0,0,
+                  0,0,r,0,0,0,0,0,
+                  0,0,0,r,0,0,0,0),8,8)  
+  mat0=diag(rep(1-rr,8))+matrix(rep(rr,64),8,8)+matr   #mat0為生成標準常態資料之相關係數矩陣
+  z0=mvrnorm(n,mu=mu,Sigma = mat0)
+  for(i in 1:n){
+    #將標準常態資料轉換為二元資料
+    y11[i] <- ifelse (z0[i,1]>qnorm(p11),0,1)  
+    y21[i] <- ifelse (z0[i,2]>qnorm(p21),0,1)
+    y31[i] <- ifelse (z0[i,3]>qnorm(p31),0,1)
+    y41[i] <- ifelse (z0[i,4]>qnorm(p41),0,1)
+    y12[i] <- ifelse (z0[i,5]>qnorm(p12),0,1)  
+    y22[i] <- ifelse (z0[i,6]>qnorm(p22),0,1)
+    y32[i] <- ifelse (z0[i,7]>qnorm(p32),0,1)
+    y42[i] <- ifelse (z0[i,8]>qnorm(p42),0,1)
+  }
+  ##計算參數之 mle ####
+  #後標1為舊藥;2為新藥
+  p11_hat[q0]=p11_h=mean(y11)
+  p21_hat[q0]=p21_h=mean(y21)
+  p31_hat[q0]=p31_h=mean(y31)
+  p41_hat[q0]=p41_h=mean(y41)
+  p12_hat[q0]=p12_h=mean(y12)
+  p22_hat[q0]=p22_h=mean(y22)
+  p32_hat[q0]=p32_h=mean(y32)
+  p42_hat[q0]=p42_h=mean(y42)
+  #後標0為截距項估計;1為斜率項估計(敢興趣參數)
+  beta10_h=log(p11_h/(1-p11_h))
+  beta20_h=log(p21_h/(1-p21_h))
+  beta30_h=log(p31_h/(1-p31_h))
+  beta40_h=log(p41_h/(1-p41_h))
+  beta11_h=log(p12_h/(1-p12_h))-beta10_h
+  beta21_h=log(p22_h/(1-p22_h))-beta20_h
+  beta31_h=log(p32_h/(1-p32_h))-beta30_h
+  beta41_h=log(p42_h/(1-p42_h))-beta40_h
+  
+  vector_beta10[q0]=beta10_h
+  vector_beta11[q0]=beta11_h
+  vector_beta20[q0]=beta20_h
+  vector_beta21[q0]=beta21_h
+  vector_beta30[q0]=beta30_h
+  vector_beta31[q0]=beta31_h
+  vector_beta40[q0]=beta40_h
+  vector_beta41[q0]=beta41_h
+  
+  #####檢定統計量MWTP#####
+  betav=log(p2/p1)
+  varb=matrix(nrow = 4,ncol = 4)
+  for (s in 1:4) {
+    for (t in 1:4) {
+      if (s==t)
+      {
+        varb[s,t]=(mean(y1[,s]*(1-y2[,t]))+mean(y2[,s]*(1-y1[,t])))/(n*(p1[s]+p2[t])^2/4)
+      } 
+      else
+      {
+        ps=(p1[s]+p2[s])/2
+        pt=(p1[t]+p2[t])/2
+        cov11=mean(y1[,s]*y1[,t])-pt*ps
+        cov10=mean(y1[,s]*y2[,t])-pt*ps
+        cov01=mean(y2[,s]*y1[,t])-pt*ps
+        cov00=mean(y2[,s]*y2[,t])-pt*ps
+        varb[s,t]=(cov11+cov00-cov01-cov10)/(n*pt*ps)
+      }
+    }
+  }  
+  wtp[q0]=t(betav)%*%solve(varb)%*%betav #同時檢定四種疾病
+  wtp1[q0]=betav[1]^2/varb[1,1] #檢定第一種疾病
+  wtp2[q0]=betav[2]^2/varb[2,2] #檢定第二種疾病
+  wtp3[q0]=betav[3]^2/varb[3,3] #檢定第三種疾病
+  wtp4[q0]=betav[4]^2/varb[4,4] #檢定第四種疾病
+  var1=(mean(y1[,1]*(1-y2[,1]))+mean(y2[,1]*(1-y1[,1])))/(n*p1[1]*p2[1])
+  cw1[q0,1]=betav[1]-1.96*sqrt(var1)
+  cw1[q0,2]=betav[1]+1.96*sqrt(var1)
+  var2=(mean(y1[,2]*(1-y2[,2]))+mean(y2[,2]*(1-y1[,2])))/(n*p1[2]*p2[2])
+  cw2[q0,1]=betav[2]-1.96*sqrt(var2)
+  cw2[q0,2]=betav[2]+1.96*sqrt(var2)
+  var3=(mean(y1[,3]*(1-y2[,3]))+mean(y2[,3]*(1-y1[,3])))/(n*p1[3]*p2[3])
+  cw3[q0,1]=betav[3]-1.96*sqrt(var3)
+  cw3[q0,2]=betav[3]+1.96*sqrt(var3)
+  var4=(mean(y1[,4]*(1-y2[,4]))+mean(y2[,4]*(1-y1[,4])))/(n*p1[4]*p2[4])
+  cw4[q0,1]=betav[4]-1.96*sqrt(var4)
+  cw4[q0,2]=betav[4]+1.96*sqrt(var4)
+  ####將上述的參數估計量代入各個I、V公式,數字標示前者危疾病種類,後者0為截距項1為斜率項####
+  
+  I_b10b10=(p11_h*(1-p11_h)+p12_h*(1-p12_h))
+  V_b10b10=I_b10b10+2*sum((y11-mean(y11))*(y12-mean(y12)))/n
+  
+  I_b20b20=(p21_h*(1-p21_h)+p22_h*(1-p22_h))
+  V_b20b20=I_b20b20+2*sum((y21-mean(y21))*(y22-mean(y22)))/n
+  
+  I_b30b30=(p31_h*(1-p31_h)+p32_h*(1-p32_h))
+  V_b30b30=I_b30b30+2*sum((y31-mean(y31))*(y32-mean(y32)))/n
+  
+  I_b40b40=(p41_h*(1-p41_h)+p42_h*(1-p42_h))
+  V_b40b40=I_b40b40+2*sum((y41-mean(y41))*(y42-mean(y42)))/n
+  
+  I_b10b11=(p12_h*(1-p12_h))
+  V_b10b11=I_b10b11+sum((y11-mean(y11))*(y12-mean(y12)))/n
+  
+  I_b20b21=(p22_h*(1-p22_h))
+  V_b20b21=I_b20b21+sum((y21-mean(y21))*(y22-mean(y22)))/n
+  
+  I_b30b31=(p32_h*(1-p32_h))
+  V_b30b31=I_b30b31+sum((y31-mean(y31))*(y32-mean(y32)))/n
+  
+  I_b40b41=(p42_h*(1-p42_h))
+  V_b40b41=I_b40b41+sum((y41-mean(y41))*(y42-mean(y42)))/n
+  
+  I_b11b11=I_b10b11
+  V_b11b11=I_b10b11
+  
+  I_b21b21=I_b20b21
+  V_b21b21=I_b20b21
+  
+  I_b31b31=I_b30b31
+  V_b31b31=I_b30b31
+  
+  I_b41b41=I_b40b41
+  V_b41b41=I_b40b41
+  
+  V_b10b20=(sum((y11-mean(y11))*(y21-mean(y21)))+sum((y11-mean(y11))*(y22-mean(y22)))+
+              sum((y12-mean(y12))*(y21-mean(y21)))+sum((y12-mean(y12))*(y22-mean(y22))))/n
+  V_b10b30=(sum((y11-mean(y11))*(y31-mean(y31)))+sum((y11-mean(y11))*(y32-mean(y32)))+
+              sum((y12-mean(y12))*(y31-mean(y31)))+sum((y12-mean(y12))*(y32-mean(y32))))/n
+  V_b10b40=(sum((y11-mean(y11))*(y41-mean(y41)))+sum((y11-mean(y11))*(y42-mean(y42)))+
+              sum((y12-mean(y12))*(y41-mean(y41)))+sum((y12-mean(y12))*(y42-mean(y42))))/n
+  V_b20b30=(sum((y21-mean(y21))*(y31-mean(y31)))+sum((y21-mean(y21))*(y32-mean(y32)))+
+              sum((y22-mean(y22))*(y31-mean(y31)))+sum((y22-mean(y22))*(y32-mean(y32))))/n
+  V_b20b40=(sum((y21-mean(y21))*(y41-mean(y41)))+sum((y21-mean(y21))*(y42-mean(y42)))+
+              sum((y22-mean(y22))*(y41-mean(y41)))+sum((y22-mean(y22))*(y42-mean(y42))))/n
+  V_b30b40=(sum((y41-mean(y41))*(y31-mean(y31)))+sum((y41-mean(y41))*(y32-mean(y32)))+
+              sum((y42-mean(y42))*(y31-mean(y31)))+sum((y42-mean(y42))*(y32-mean(y32))))/n
+  
+  V_b10b21=sum(((y11-mean(y11))*(y22-mean(y22))+(y12-mean(y12))*(y22-mean(y22))))/n
+  V_b10b31=sum(((y11-mean(y11))*(y32-mean(y32))+(y12-mean(y12))*(y32-mean(y32))))/n
+  V_b10b41=sum(((y11-mean(y11))*(y42-mean(y42))+(y12-mean(y12))*(y42-mean(y42))))/n
+  V_b20b11=sum(((y21-mean(y21))*(y12-mean(y12))+(y22-mean(y22))*(y12-mean(y12))))/n
+  V_b20b31=sum(((y21-mean(y21))*(y32-mean(y32))+(y22-mean(y22))*(y32-mean(y32))))/n
+  V_b20b41=sum(((y21-mean(y21))*(y42-mean(y42))+(y22-mean(y22))*(y42-mean(y42))))/n
+  V_b30b11=sum(((y31-mean(y31))*(y12-mean(y12))+(y32-mean(y32))*(y12-mean(y12))))/n
+  V_b30b21=sum(((y31-mean(y31))*(y22-mean(y22))+(y32-mean(y32))*(y22-mean(y22))))/n
+  V_b30b41=sum(((y31-mean(y31))*(y42-mean(y42))+(y32-mean(y32))*(y42-mean(y42))))/n
+  V_b40b11=sum(((y41-mean(y41))*(y12-mean(y12))+(y42-mean(y42))*(y12-mean(y12))))/n
+  V_b40b21=sum(((y41-mean(y41))*(y22-mean(y22))+(y42-mean(y42))*(y22-mean(y22))))/n
+  V_b40b31=sum(((y41-mean(y41))*(y32-mean(y32))+(y42-mean(y42))*(y32-mean(y32))))/n
+  
+  V_b11b21=sum((y12-mean(y12))*(y22-mean(y22)))/n
+  V_b11b31=sum((y12-mean(y12))*(y32-mean(y32)))/n
+  V_b21b31=sum((y22-mean(y22))*(y32-mean(y32)))/n
+  V_b11b41=sum((y12-mean(y12))*(y42-mean(y42)))/n
+  V_b21b41=sum((y22-mean(y22))*(y42-mean(y42)))/n
+  V_b31b41=sum((y32-mean(y32))*(y42-mean(y42)))/n
+  
+  #####將上述的參數估計量代入修正項AB####
+  Ibb = diag(c(I_b10b10,I_b20b20,I_b30b30,I_b40b40))  ##論文中I00
+  Iab = diag(c(I_b10b11,I_b20b21,I_b30b31,I_b40b41))  ##論文中I10
+  Iaa = diag(c(I_b11b11,I_b21b21,I_b31b31,I_b41b41))  ##論文中I11
+  Vbb = matrix(c(V_b10b10,V_b10b20,V_b10b30,V_b10b40,
+                 V_b10b20,V_b20b20,V_b20b30,V_b20b40,
+                 V_b10b30,V_b20b30,V_b30b30,V_b30b40,
+                 V_b10b40,V_b20b40,V_b30b40,V_b40b40),ncol = 4)
+  Vab = matrix(c(V_b10b11,V_b20b11,V_b30b11,V_b40b11,
+                 V_b10b21,V_b20b21,V_b30b21,V_b40b21,
+                 V_b10b31,V_b20b31,V_b30b31,V_b40b31,
+                 V_b10b41,V_b20b41,V_b30b41,V_b40b41),ncol = 4)
+  Vaa = matrix(c(V_b11b11,V_b11b21,V_b11b31,V_b11b41,
+                 V_b11b21,V_b21b21,V_b21b31,V_b21b41,
+                 V_b11b31,V_b21b31,V_b31b31,V_b31b41,
+                 V_b11b41,V_b21b41,V_b31b41,V_b41b41),ncol = 4)
+  
+  ##A0_h 敢興趣參數為4個斜率項的修正項A
+  ##B0_h 敢興趣參數為4個斜率項的修正項B
+  A0_h = A0_h+Iaa-Iab%*%solve(Ibb)%*%Iab
+  A0_hh = Iaa-Iab%*%solve(Ibb)%*%Iab
+  B0_h = B0_h+Vaa-Iab%*%solve(Ibb)%*%t(Vab)-Vab%*%solve(Ibb)%*%Iab+Iab%*%solve(Ibb)%*%Vbb%*%solve(Ibb)%*%Iab
+  B0_hh = Vaa-Iab%*%solve(Ibb)%*%t(Vab)-Vab%*%solve(Ibb)%*%Iab+Iab%*%solve(Ibb)%*%Vbb%*%solve(Ibb)%*%Iab
+  ##Ar_h 敢興趣參數為第r種疾病修正項A
+  ##Br_h 敢興趣參數為第r種疾病修正項B
+  A1_hh = A0_hh[1,1]
+  B1_hh = B0_hh[1,1]
+  A2_hh = A0_hh[2,2]
+  B2_hh = B0_hh[2,2]
+  A3_hh = A0_hh[3,3]
+  B3_hh = B0_hh[3,3]
+  A4_hh = A0_hh[4,4]
+  B4_hh = B0_hh[4,4]
+  
+  nai00=nai00+solve(A0_hh)/n
+  adj00=adj00+solve(A0_hh)%*%B0_hh%*%solve(A0_hh)/n
+  nai11=nai11+solve(A1_hh)/n
+  adj11=adj11+solve(A1_hh)%*%B1_hh%*%solve(A1_hh)/n
+  nai22=nai22+solve(A2_hh)/n
+  adj22=adj22+solve(A2_hh)%*%B2_hh%*%solve(A2_hh)/n
+  nai33=nai33+solve(A3_hh)/n
+  adj33=adj33+solve(A3_hh)%*%B3_hh%*%solve(A3_hh)/n
+  nai44=nai44+solve(A4_hh)/n
+  adj44=adj44+solve(A4_hh)%*%B4_hh%*%solve(A4_hh)/n
+
+  #####under H0######
+  ##虛無假設下
+  ##在虛無假設下，各個參數的估計量
+  k1=mean(y11+y12)/2  #alpha-telda
+  k2=mean(y21+y22)/2  #beta-telda
+  k3=mean(y31+y32)/2  #gamma-telda
+  k4=mean(y41+y42)/2  #ita-telda
+  z1=log(k1/(1-k1))  ##p10-telda
+  z2=log(k2/(1-k2))  ##p20-telda
+  z3=log(k3/(1-k3))  ##p30-telda
+  z4=log(k4/(1-k4))  ##p40-telda
+  #####在虛無假設下，將上述的參數估計量代入各個I、V公式######
+  I0_b10b10=2*k1*(1-k1)
+  V0_b10b10=I0_b10b10+2*(sum((y11-k1)*(y12-k1)))/n
+  
+  I0_b20b20=2*k2*(1-k2)
+  V0_b20b20=I0_b20b20+2*(sum((y21-k2)*(y22-k2)))/n
+  
+  I0_b30b30=2*k3*(1-k3)
+  V0_b30b30=I0_b30b30+2*(sum((y31-k3)*(y32-k3)))/n
+  
+  I0_b40b40=2*k4*(1-k4)
+  V0_b40b40=I0_b40b40+2*(sum((y41-k4)*(y42-k4)))/n
+  
+  I0_b10b11=k1*(1-k1)
+  V0_b10b11=I0_b10b11+(sum((y11-k1)*(y12-k1)))/n
+  
+  I0_b20b21=k2*(1-k2)
+  V0_b20b21=I0_b20b21+(sum((y21-k2)*(y22-k2)))/n
+  
+  I0_b30b31=k3*(1-k3)
+  V0_b30b31=I0_b30b31+(sum((y31-k3)*(y32-k3)))/n
+  
+  I0_b40b41=k4*(1-k4)
+  V0_b40b41=I0_b40b41+(sum((y41-k4)*(y42-k4)))/n
+  
+  I0_b11b11=I0_b10b11
+  V0_b11b11=I0_b11b11
+  
+  I0_b21b21=I0_b20b21
+  V0_b21b21=I0_b21b21
+  
+  I0_b31b31=I0_b30b31
+  V0_b31b31=I0_b31b31
+  
+  I0_b41b41=I0_b40b41
+  V0_b41b41=I0_b41b41
+
+  V0_b10b20=(sum((y11-k1)*(y21-k2))+sum((y11-k1)*(y22-k2))+
+               sum((y12-k1)*(y21-k2))+sum((y12-k1)*(y22-k2)))/n
+  V0_b10b30=(sum((y11-k1)*(y31-k3))+sum((y11-k1)*(y32-k3))+
+               sum((y12-k1)*(y31-k3))+sum((y12-k1)*(y32-k3)))/n
+  V0_b10b40=(sum((y11-k1)*(y41-k4))+sum((y11-k1)*(y42-k4))+
+               sum((y12-k1)*(y41-k4))+sum((y12-k1)*(y42-k4)))/n
+  V0_b20b30=(sum((y21-k2)*(y31-k3))+sum((y21-k2)*(y32-k3))+
+               sum((y22-k2)*(y31-k3))+sum((y22-k2)*(y32-k3)))/n
+  V0_b20b40=(sum((y21-k2)*(y41-k4))+sum((y21-k2)*(y42-k4))+
+               sum((y22-k2)*(y41-k4))+sum((y22-k2)*(y42-k4)))/n
+  V0_b30b40=(sum((y31-k3)*(y41-k4))+sum((y31-k3)*(y42-k4))+
+               sum((y32-k3)*(y41-k4))+sum((y32-k3)*(y42-k4)))/n
+  
+  V0_b10b21=sum(((y11-k1)*(y22-k2)+(y12-k1)*(y22-k2)))/n
+  V0_b10b31=sum(((y11-k1)*(y32-k3)+(y12-k1)*(y32-k3)))/n
+  V0_b10b41=sum(((y11-k1)*(y42-k4)+(y12-k1)*(y42-k4)))/n
+  V0_b20b11=sum(((y21-k2)*(y12-k1)+(y22-k2)*(y12-k1)))/n
+  V0_b20b31=sum(((y21-k2)*(y32-k3)+(y22-k2)*(y32-k3)))/n
+  V0_b20b41=sum(((y21-k2)*(y42-k4)+(y22-k2)*(y42-k4)))/n
+  V0_b30b11=sum(((y31-k3)*(y12-k1)+(y32-k3)*(y12-k1)))/n
+  V0_b30b21=sum(((y31-k3)*(y22-k2)+(y32-k3)*(y22-k2)))/n
+  V0_b30b41=sum(((y31-k3)*(y42-k4)+(y32-k3)*(y42-k4)))/n
+  V0_b40b11=sum(((y41-k4)*(y12-k1)+(y42-k4)*(y12-k1)))/n
+  V0_b40b21=sum(((y41-k4)*(y22-k2)+(y42-k4)*(y22-k2)))/n
+  V0_b40b31=sum(((y41-k4)*(y32-k3)+(y42-k4)*(y32-k3)))/n
+  
+  V0_b11b21=sum((y12-k1)*(y22-k2))/n
+  V0_b11b31=sum((y12-k1)*(y32-k3))/n
+  V0_b11b41=sum((y12-k1)*(y42-k4))/n
+  V0_b21b31=sum((y22-k2)*(y32-k3))/n
+  V0_b21b41=sum((y22-k2)*(y42-k4))/n
+  V0_b31b41=sum((y32-k3)*(y42-k4))/n
+  
+  I0bb = diag(c(I0_b10b10,I0_b20b20,I0_b30b30,I0_b40b40))
+  I0ab = diag(c(I0_b10b11,I0_b20b21,I0_b30b31,I0_b40b41))
+  I0aa = diag(c(I0_b11b11,I0_b21b21,I0_b31b31,I0_b41b41))
+  V0bb = matrix(c(V0_b10b10,V0_b10b20,V0_b10b30,V0_b10b40,
+                  V0_b10b20,V0_b20b20,V0_b20b30,V0_b20b40,
+                  V0_b10b30,V0_b20b30,V0_b30b30,V0_b30b40,
+                  V0_b10b40,V0_b20b40,V0_b30b40,V0_b40b40),ncol = 4)
+  V0ab = matrix(c(V0_b10b11,V0_b20b11,V0_b30b11,V0_b40b11,
+                  V0_b10b21,V0_b20b21,V0_b30b21,V0_b40b21,
+                  V0_b10b31,V0_b20b31,V0_b30b31,V0_b40b31,
+                  V0_b10b41,V0_b20b41,V0_b30b41,V0_b40b41),ncol = 4)
+  V0aa = matrix(c(V0_b11b11,V0_b11b21,V0_b11b31,V0_b11b41,
+                  V0_b11b21,V0_b21b21,V0_b21b31,V0_b21b41,
+                  V0_b11b31,V0_b21b31,V0_b31b31,V0_b31b41,
+                  V0_b11b41,V0_b21b41,V0_b31b41,V0_b41b41),ncol = 4)
+  ##A0,B0為虛無假設下修正項AB估計
+  A0 = A0+I0aa-I0ab%*%solve(I0bb)%*%I0ab
+  AA = I0aa-I0ab%*%solve(I0bb)%*%I0ab
+  B0 = B0+V0aa-I0ab%*%solve(I0bb)%*%V0ab-t(V0ab)%*%solve(I0bb)%*%I0ab+I0ab%*%solve(I0bb)%*%V0bb%*%solve(I0bb)%*%I0ab
+  BB = V0aa-I0ab%*%solve(I0bb)%*%V0ab-t(V0ab)%*%solve(I0bb)%*%I0ab+I0ab%*%solve(I0bb)%*%V0bb%*%solve(I0bb)%*%I0ab
+
+  sa=solve(AA)
+  sb=solve(BB)
+
+  ##虛無假設下感興趣參數之分數函數
+  ss1=0.5*sum(y12-y11)
+  ss2=0.5*sum(y22-y21)
+  ss3=0.5*sum(y32-y31)
+  ss4=0.5*sum(y42-y41)
+  ss0=matrix(c(ss1,ss2,ss3,ss4),1,4)
+  ##計算NS、RS檢定統計量
+  NS0=ss0%*%sa%*%t(ss0)/n  ##虛無假設為4種疾病下之NS
+  NS1=ss1%*%solve(AA[1,1])%*%t(ss1)/n 
+  NS2=ss2%*%solve(AA[2,2])%*%t(ss2)/n 
+  NS3=ss3%*%solve(AA[3,3])%*%t(ss3)/n 
+  NS4=ss4%*%solve(AA[4,4])%*%t(ss4)/n 
+  RS0=ss0%*%sb%*%t(ss0)/n ##虛無假設為4種疾病下之RS
+  RS1=ss1%*%solve(BB[1,1])%*%t(ss1)/n 
+  RS2=ss2%*%solve(BB[2,2])%*%t(ss2)/n 
+  RS3=ss3%*%solve(BB[3,3])%*%t(ss3)/n 
+  RS4=ss4%*%solve(BB[4,4])%*%t(ss4)/n 
+  ##紀錄每次模擬的值
+  NS[q0]=NS0 
+  NS01[q0]=NS1
+  NS02[q0]=NS2
+  NS03[q0]=NS3
+  NS04[q0]=NS4
+  RS[q0]=RS0
+  RS01[q0]=RS1
+  RS02[q0]=RS2
+  RS03[q0]=RS3
+  RS04[q0]=RS4
+  
+  ##### alpha之CI#######
+  en1=c();ea1=c();aa01=c();qn1=c();qa1=c()
+  f1 <- function(a0){mean(y11+y12)-exp(a0)/(1+exp(a0))-exp(a0+a)/(1+exp(a0+a))} #對alpha0微分得到之分數函數
+  ##ff1為NS1函數
+  ff1 <- function(a0,a){p0 = exp(a0)/(1+exp(a0));p = exp(a0+a)/(1+exp(a0+a));
+  n*mean(y12-p)^2*(p0*(1-p0)+p*(1-p))/(p0*(1-p0)*p*(1-p))-qchisq(0.95,1)
+  }
+  ##f11為RS1函數
+  f11 <- function(a0,a){p0 = exp(a0)/(1+exp(a0));p = exp(a0+a)/(1+exp(a0+a));
+  n*mean(y12-p)^2*(p0*(1-p0)+p*(1-p))^2/
+    (p0*(1-p0)*p*(1-p)*(p0*(1-p0)+p*(1-p)+2*p*p0-2*mean(y11*y12)))-qchisq(0.95,1)
+  }
+  w1=seq(beta11_h-2,beta11_h+2,0.01)  #建立代點項量
+  ##代入每一點
+  for (i in 1:length(w1)) {
+    a=w1[i]
+    aa01[i]=uniroot(f1,c(-10,10))$root
+    qn1[i]=ff1(a=w1[i],a0=aa01[i])
+    qa1[i]=f11(a=w1[i],a0=aa01[i])
+    en1[i]=ifelse(i>1,ifelse(qn1[i-1]*qn1[i]<0,1,0),0)
+    ea1[i]=ifelse(i>1,ifelse(qa1[i-1]*qa1[i]<0,1,0),0)
+  }
+  ci1[q0,1]=w1[which(en1==1)[1]]  ##NS1計算之CI下屆
+  ci1[q0,2]=w1[which(en1==1)[2]]  ##NS1計算之CI上屆
+  ci01[q0,1]=w1[which(ea1==1)[1]]  ##RS1計算之CI下屆
+  ci01[q0,2]=w1[which(ea1==1)[2]]  ##RS1計算之CI上屆
+  u1 <- ifelse (0>ci1[q0,1] ,1,0)
+  l1 <- ifelse (0<ci1[q0,2] ,1,0)
+  pr1[q0] <- u1*l1   ##NS1計算之覆蓋機率
+  u01 <- ifelse (0>ci01[q0,1] ,1,0)
+  l01 <- ifelse (0<ci01[q0,2] ,1,0)
+  pr01[q0] <- u01*l01  ##RS1計算之覆蓋機率
+  
+  ##### beta之CI#######
+  en2=c();ea2=c();aa02=c();qn2=c();qa2=c()
+  f2 <- function(a0){mean(y21+y22)-exp(a0)/(1+exp(a0))-exp(a0+a)/(1+exp(a0+a))} #對beta0微分得到之分數函數
+  ##ff2為NS2函數
+  ff2 <- function(a0,a){p0 = exp(a0)/(1+exp(a0));p = exp(a0+a)/(1+exp(a0+a));
+  n*mean(y22-p)^2*(p0*(1-p0)+p*(1-p))/(p0*(1-p0)*p*(1-p))-qchisq(0.95,1)
+  }
+  ##f22為RS2函數
+  f22 <- function(a0,a){p0 = exp(a0)/(1+exp(a0));p = exp(a0+a)/(1+exp(a0+a));
+  n*mean(y22-p)^2*(p0*(1-p0)+p*(1-p))^2/
+    (p0*(1-p0)*p*(1-p)*(p0*(1-p0)+p*(1-p)+2*p*p0-2*mean(y21*y22)))-qchisq(0.95,1)
+  }
+  w2=seq(beta21_h-2,beta21_h+2,0.01)#建立代點項量
+  ##代入每一點
+  for (i in 1:length(w2)) {
+    a=w2[i]
+    aa02[i]=uniroot(f2,c(-10,10))$root
+    qn2[i]=ff2(a=w2[i],a0=aa02[i])
+    qa2[i]=f22(a=w2[i],a0=aa02[i])
+    en2[i]=ifelse(i>1,ifelse(qn2[i-1]*qn2[i]<0,1,0),0)
+    ea2[i]=ifelse(i>1,ifelse(qa2[i-1]*qa2[i]<0,1,0),0)
+  }
+  ci2[q0,1]=w2[which(en2==1)[1]]  ##NS2計算之CI下屆
+  ci2[q0,2]=w2[which(en2==1)[2]]  ##NS2計算之CI上屆
+  ci02[q0,1]=w2[which(ea2==1)[1]]  ##RS2計算之CI下屆
+  ci02[q0,2]=w2[which(ea2==1)[2]]  ##RS2計算之CI上屆
+  u2 <- ifelse (0>ci2[q0,1] ,1,0)
+  l2 <- ifelse (0<ci2[q0,2] ,1,0)
+  pr2[q0] <- u2*l2  ##NS2計算之覆蓋機率
+  u02 <- ifelse (0>ci02[q0,1] ,1,0)
+  l02 <- ifelse (0<ci02[q0,2] ,1,0)
+  pr02[q0] <- u02*l02  ##RS2計算之覆蓋機率
+
+  ##### gamma之CI#######
+  en3=c();ea3=c();aa03=c();qn3=c();qa3=c()
+  f3 <- function(a0){mean(y31+y32)-exp(a0)/(1+exp(a0))-exp(a0+a)/(1+exp(a0+a))}  #對gamma0微分得到之分數函數
+  ##ff3為NS3函數
+  ff3 <- function(a0,a){p0 = exp(a0)/(1+exp(a0));p = exp(a0+a)/(1+exp(a0+a));
+  n*mean(y32-p)^2*(p0*(1-p0)+p*(1-p))/(p0*(1-p0)*p*(1-p))-qchisq(0.95,1)
+  }
+  ##f33為RS3函數
+  f33 <- function(a0,a){p0 = exp(a0)/(1+exp(a0));p = exp(a0+a)/(1+exp(a0+a));
+  n*mean(y32-p)^2*(p0*(1-p0)+p*(1-p))^2/
+    (p0*(1-p0)*p*(1-p)*(p0*(1-p0)+p*(1-p)+2*p*p0-2*mean(y31*y32)))-qchisq(0.95,1)
+  }
+  w3=seq(beta31_h-2,beta31_h+2,0.01)  #建立代點項量
+  ##代入每一點
+  for (i in 1:length(w3)) {
+    a=w3[i]
+    aa03[i]=uniroot(f3,c(-10,10))$root
+    qn3[i]=ff3(a=w3[i],a0=aa03[i])
+    qa3[i]=f33(a=w3[i],a0=aa03[i])
+    en3[i]=ifelse(i>1,ifelse(qn3[i-1]*qn3[i]<0,1,0),0)
+    ea3[i]=ifelse(i>1,ifelse(qa3[i-1]*qa3[i]<0,1,0),0)
+  }
+  ci3[q0,1]=w3[which(en3==1)[1]]  ##NS3計算之CI下屆
+  ci3[q0,2]=w3[which(en3==1)[2]]  ##NS3計算之CI上屆
+  ci03[q0,1]=w3[which(ea3==1)[1]]  ##RS3計算之CI下屆
+  ci03[q0,2]=w3[which(ea3==1)[2]]  ##RS3計算之CI上屆
+  u3 <- ifelse (0>ci3[q0,1] ,1,0)
+  l3 <- ifelse (0<ci3[q0,2] ,1,0)
+  pr3[q0] <- u3*l3  ##NS3計算之覆蓋機率
+  u03 <- ifelse (0>ci03[q0,1] ,1,0)
+  l03 <- ifelse (0<ci03[q0,2] ,1,0)
+  pr03[q0] <- u03*l03  ##RS3計算之覆蓋機率
+  
+  ##### eta之CI#######
+  en4=c();ea4=c();aa04=c();qn4=c();qa4=c()
+  f4 <- function(a0){mean(y41+y42)-exp(a0)/(1+exp(a0))-exp(a0+a)/(1+exp(a0+a))}  #對eta0微分得到之分數函數
+  ##ff4為NS4函數
+  ff4 <- function(a0,a){p0 = exp(a0)/(1+exp(a0));p = exp(a0+a)/(1+exp(a0+a));
+  n*mean(y42-p)^2*(p0*(1-p0)+p*(1-p))/(p0*(1-p0)*p*(1-p))-qchisq(0.95,1)
+  }
+  ##f44為RS4函數
+  f44 <- function(a0,a){p0 = exp(a0)/(1+exp(a0));p = exp(a0+a)/(1+exp(a0+a));
+  n*mean(y42-p)^2*(p0*(1-p0)+p*(1-p))^2/
+    (p0*(1-p0)*p*(1-p)*(p0*(1-p0)+p*(1-p)+2*p*p0-2*mean(y41*y42)))-qchisq(0.95,1)
+  }
+  w4=seq(beta41_h-2,beta41_h+2,0.01)  #建立代點項量
+  ##代入每一點
+  for (i in 1:length(w4)) {
+    a=w4[i]
+    aa04[i]=uniroot(f4,c(-10,10))$root
+    qn4[i]=ff4(a=w4[i],a0=aa04[i])
+    qa4[i]=f44(a=w4[i],a0=aa04[i])
+    en4[i]=ifelse(i>1,ifelse(qn4[i-1]*qn4[i]<0,1,0),0)
+    ea4[i]=ifelse(i>1,ifelse(qa4[i-1]*qa4[i]<0,1,0),0)
+  }
+  ci4[q0,1]=w4[which(en4==1)[1]]  ##NS4計算之CI下屆
+  ci4[q0,2]=w4[which(en4==1)[2]]  ##NS4計算之CI上屆
+  ci04[q0,1]=w4[which(ea4==1)[1]]  ##RS4計算之CI下屆
+  ci04[q0,2]=w4[which(ea4==1)[2]]  ##RS4計算之CI上屆
+  u4 <- ifelse (0>ci4[q0,1] ,1,0)
+  l4 <- ifelse (0<ci4[q0,2] ,1,0)
+  pr4[q0] <- u4*l4  ##NS4計算之覆蓋機率
+  u04 <- ifelse (0>ci04[q0,1] ,1,0)
+  l04 <- ifelse (0<ci04[q0,2] ,1,0)
+  pr04[q0] <- u04*l04  ##RS4計算之覆蓋機率
+  
+  q0=q0+1
+ 
+} 
+######計算模擬平均#####
+b10hat=mean(vector_beta10)
+b11hat=mean(vector_beta11)
+b20hat=mean(vector_beta20)
+b21hat=mean(vector_beta21)
+b30hat=mean(vector_beta30)
+b31hat=mean(vector_beta31)
+b40hat=mean(vector_beta40)
+b41hat=mean(vector_beta41)
+TYPEN=sum(NS>9.488)/q
+TYPEN11=sum(NS01>3.84)/q
+TYPEN22=sum(NS02>3.84)/q
+TYPEN33=sum(NS03>3.84)/q
+TYPEN44=sum(NS04>3.84)/q
+TYPEA=sum(RS>9.488)/q
+TYPEA11=sum(RS01>3.84)/q
+TYPEA22=sum(RS02>3.84)/q
+TYPEA33=sum(RS03>3.84)/q
+TYPEA44=sum(RS04>3.84)/q
+ww=sum(w>9.488)/q
+ww0=sum(w0>9.488)/q
+wtp0=sum(wtp>9.488)/q
+wtp01=sum(wtp1>3.84)/q
+wtp02=sum(wtp2>3.84)/q
+wtp03=sum(wtp3>3.84)/q
+wtp04=sum(wtp4>3.84)/q
+A0_hat=A0_h/q
+B0_hat=B0_h/q
+A=A0/q;B=B0/q
+ca111=c(sum(ci01[,1])/q,sum(ci01[,2])/q)
+ca222=c(sum(ci02[,1])/q,sum(ci02[,2])/q)
+ca333=c(sum(ci03[,1])/q,sum(ci03[,2])/q)
+ca444=c(sum(ci04[,1])/q,sum(ci04[,2])/q)
+ci11=c(sum(ci1[,1])/q,sum(ci1[,2])/q)
+ci22=c(sum(ci2[,1])/q,sum(ci2[,2])/q)
+ci33=c(sum(ci3[,1])/q,sum(ci3[,2])/q)
+ci44=c(sum(ci4[,1])/q,sum(ci4[,2])/q)
+cw11=c(sum(cw1[,1])/q,sum(cw1[,2])/q)
+cw22=c(sum(cw2[,1])/q,sum(cw2[,2])/q)
+cw33=c(sum(cw3[,1])/q,sum(cw3[,2])/q)
+cw44=c(sum(cw4[,1])/q,sum(cw4[,2])/q)
+s1=var(vector_beta11)
+s2=var(vector_beta21)
+s3=var(vector_beta31)
+s4=var(vector_beta41)
+
+####平均結果####
+b10hat;b11hat;s1;nai11/q;adj11/q
+b20hat;b21hat;s2;nai22/q;adj22/q
+b30hat;b31hat;s3;nai33/q;adj33/q
+b40hat;b41hat;s4;nai44/q;adj44/q
+mean(p11_hat);mean(p12_hat)
+mean(p21_hat);mean(p22_hat)
+mean(p31_hat);mean(p32_hat)
+mean(p41_hat);mean(p42_hat)
+mean(pr1);mean(pr2);mean(pr3);mean(pr4)  #naive
+mean(pr01);mean(pr02);mean(pr03);mean(pr04)   #adj
+ca111;ca111[2]-ca111[1];ci11;ci11[2]-ci11[1]
+ca222;ca222[2]-ca222[1];ci22;ci22[2]-ci22[1]
+ca333;ca333[2]-ca333[1];ci33;ci33[2]-ci33[1]
+ca444;ca444[2]-ca444[1];ci44;ci44[2]-ci44[1]
+TYPEN;TYPEN11;TYPEN22;TYPEN33;TYPEN44   ##NS,NS1,NS2,NS3,NS4
+TYPEA;TYPEA11;TYPEA22;TYPEA33;TYPEA44   ##RS,RS1,RS2,RS3,RS4
+wtp0;wtp01;wtp02;wtp03;wtp04   ##MWTP

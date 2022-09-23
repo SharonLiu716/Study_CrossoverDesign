@@ -1,0 +1,71 @@
+m=10000
+set.seed(100)
+xi1.1=runif(m,1,3)
+set.seed(99)
+xi1.2=runif(m,1,3)
+set.seed(98)
+xi2.1=runif(m,1,3)
+set.seed(97)
+xi2.2=runif(m,1,3)
+set.seed(96)
+xi3.1=runif(m,1,3)
+set.seed(95)
+xi3.2=runif(m,1,3)
+#1
+set.seed(94)
+nui=runif(m,1/2,3/2)
+#2
+set.seed(93)
+nui=runif(m,0,2)
+#3
+set.seed(92)
+nui=rgamma(m,shape=1,scale=1)
+#4
+set.seed(91)
+nui=rgamma(m,shape=1/2,scale=2)
+#5
+set.seed(90)
+nui=rgamma(m,shape=1/3,scale=3)
+#weibull
+f=function(b)((factorial(1/b)^(-2))*factorial(2/b))-4
+b=uniroot(f,c(0.01,1000))$root
+a=1/factorial(1/b)
+#6
+set.seed(89)
+nui=rweibull(m,1,1)
+#7
+set.seed(88)
+nui=rweibull(m,b,a)
+#8
+set.seed(87)
+nui=rweibull(m,b,a)
+
+#calculate
+mui1=c()
+mui2=c()
+mui3=c()
+nbmean1=c()
+nbmean2=c()
+nbmean3=c()
+yi1=c()
+yi2=c()
+yi3=c()
+for (j in 1:m) {
+   mui1[j]=0.5+xi1.1[j]+xi1.2[j]
+   nbmean1[j]=nui[j]*mui1[j]
+   mui2[j]=0.5+xi2.1[j]+xi2.2[j]
+   nbmean2[j]=nui[j]*mui2[j]
+   mui3[j]=0.5+xi3.1[j]+xi3.2[j]
+   nbmean3[j]=nui[j]*mui3[j]
+}
+for (j in 1:m) {
+   yi1[j]=rnbinom(1,1,1/(nbmean1[j]+1))
+   yi2[j]=rnbinom(1,3,3/(nbmean2[j]+3))
+   yi3[j]=rnbinom(1,5,5/(nbmean3[j]+5))
+ }
+tho8.12=cor(yi1,yi2)
+tho8.13=cor(yi1,yi3)
+tho8.23=cor(yi2,yi3)
+
+
+

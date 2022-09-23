@@ -1,0 +1,117 @@
+library(MASS)
+###########################################################
+ptm <- Sys.time()
+set.seed(5014)
+p1= 0.5 ; theta0 = 2 ; delta0 = 0.45;v1=0.9;v0=0.4;
+n =200 ; q0=1 ; q= 10000; ro=0
+###########################################################l
+a3=0;b3=0;c3=0;e3=0;i3=0;h3=0;k3=0;j3=0;m3=0;
+
+se0=1-delta0*(theta0-1)/(theta0-delta0)
+sp0=(theta0-1)/(theta0-delta0)
+
+I1_tt =se0*p1*v1/theta0^2+((1-se0)*p1+sp0*(1-p1))/(theta0-1)^2+(1-v1)*(se0*p1+(1-sp0)*(1-p1))*p1^2/(p1*(theta0-1)+1)^2-1/(theta0-delta0)^2
+I1_dd =(1-se0)*p1*v0/delta0^2+(se0*p1+(1-sp0)*(1-p1))/(1-delta0)^2+(1-v0)*((1-se0)*p1+sp0*(1-p1))*p1^2/(p1*(delta0-1)+1)^2-1/(theta0-delta0)^2
+I1_td=1/(theta0-delta0)^2
+I1_tp=(1-v1)*(se0*p1+(1-sp0)*(1-p1))/(p1*(theta0-1)+1)^2
+I1_dp=(1-v0)*((1-se0)*p1+sp0*(1-p1))/(p1*(delta0-1)+1)^2
+I1_pp=(se0*p1*v1+(1-se0)*p1*v0)/p1^2+((1-sp0)*(1-p1)*v1+sp0*(1-p1)*v0)/(1-p1)^2+(1-v1)*(se0*p1+(1-sp0)*(1-p1))*(theta0-1)^2/(p1*(theta0-1)+1)^2+(1-v0)*((1-se0)*p1+sp0*(1-p1))*(delta0-1)^2/(p1*(delta0-1)+1)^2
+Att1_hat = I1_tt-(I1_td*(I1_td/I1_dd+I1_tp/I1_dp)+I1_tp*(I1_td/I1_dp+I1_tp/I1_pp))
+
+
+
+ps10=se0*p1*v1
+pr10=v1*(1-p1)*(1-sp0)
+pu10=(1-v1)*(p1*se0+(1-p1)*(1-sp0))
+ps00=v0*p1*(1-se0)
+pr00=v0*(1-p1)*sp0
+pu00=(1-v0)*(p1*(1-se0)+(1-p1)*sp0)
+
+
+#####空集合######
+d=array(,c(6,q));t=c();v01=c();v00=c();u1=c();se_hat=c();sp_hat=c();delta_hat=array(,c(1,q));theta_hat=c();p_hat=c();cdelta_mle_hat=c();ctheta_mle_hat=c();vart=c(); vard=c();vprb21=c();vprb22=c;vprb211=c();vprb222=c();vcdelta_mle=c();vctheta_mle=c()
+s1=c();r1=c();u1=c();s0=c();r0=c();u0=c();s=c();r=c();n1=c();n0=c();
+nait=c();naid=c();Att_h=c();Add_h=c();Btt_h=c();Bdd_h=c();adjt_h=c();adjd_h=c()
+nst0=c();wst0=c();lst0=c();lead1_hat=c();lead2_hat=c()
+nsd1=c();wsd1=c();lsd1=c()
+rtu=c();rtl=c();rdu=c();rdl=c();pr21=c();pr22=c();artu=c();artl=c();pra21=c();ardu=c();ardl=c();pra22=c();brtu=c();brtl=c();prb21=c();brdu=c();brdl=c();prb22=c();crtu=c();crtl=c();prc21=c();crdu=c();crdl=c();prc22=c()
+ci1=matrix(ncol = 2,nrow = q);pr1=c();ci021=matrix(ncol = 2,nrow = q);pr01=c();ci2=matrix(ncol = 2,nrow = q);pr2=c();ci11=matrix(ncol = 2,nrow = q);pr11=c()
+#####模擬#####
+
+
+###資料生成 生2個伯努力資料
+
+
+for(i in 1:q){
+  
+  d[,i]=rmultinom(1, size = n, prob =  c(ps10,pr10,pu10,ps00,pr00,pu00))
+  
+}
+
+
+###計算出各mle##
+
+s1=array(,c(1,q));r1=array(,c(1,q));u1=array(,c(1,q));s0=array(,c(1,q));r0=array(,c(1,q));u0=array(,c(1,q));s=array(,c(1,q));r=array(,c(1,q));n1=array(,c(1,q));n0=array(,c(1,q))
+se_mle=c();sp_mle=array(,c(1,q));theta_mle=array(,c(1,q));delta_mle=array(,c(1,q));p_mle=array(,c(1,q));lead0_mle=array(,c(1,q));lead1_mle=array(,c(1,q));
+
+for(i in 1:q){
+  s1[i]=d[1,i];r1[i]=d[2,i];u1[i]=d[3,i];s0[i]=d[4,i];r0[i]=d[5,i];u0[i]=d[6,i];s[i]=s1[i]+s0[i];r[i]=r1[i]+r0[i];n1[i]=s1[i]+r1[i]+u1[i];n0[i]=s0[i]+r0[i]+u0[i];
+
+  se_mle= s1*n1/(s1+r1)/(s1*n1/(s1+r1)+s0*n0/(s0+r0)) 
+  sp_mle= r0*n0/(s0+r0)/(r1*n1/(s1+r1)+r0*n0/(s0+r0))
+  theta_mle=se_mle/(1-sp_mle)
+  delta_mle=(1-se_mle)/sp_mle
+  p_mle=(s1*n1/(s1+r1)+s0*n0/(s0+r0))/(n1+n0)
+  lead1_mle=(s1+r1)/n1
+  lead0_mle=(s0+r0)/n0
+  
+  vt=sum((theta_mle-theta0)^2)/n
+
+  
+  I1_tt =se_mle*p_mle*lead1_mle/theta_mle^2+((1-se_mle)*p_mle+sp_mle*(1-p_mle))/(theta_mle-1)^2+(1-v1)*(se0*p1+(1-sp0)*(1-p1))*p1^2/(p1*(theta0-1)+1)^2-1/(theta0-delta0)^2
+  I1_dd =(1-se0)*p1*v0/delta0^2+(se0*p1+(1-sp0)*(1-p1))/(1-delta0)^2+(1-v0)*((1-se0)*p1+sp0*(1-p1))*p1^2/(p1*(delta0-1)+1)^2-1/(theta0-delta0)^2
+  I1_td=1/(theta0-delta0)^2
+  I1_tp=(1-v1)*(se0*p1+(1-sp0)*(1-p1))/(p1*(theta0-1)+1)^2
+  I1_dp=(1-v0)*((1-se0)*p1+sp0*(1-p1))/(p1*(delta0-1)+1)^2
+  I1_pp=(se0*p1*v1+(1-se0)*p1*v0)/p1^2+((1-sp0)*(1-p1)*v1+sp0*(1-p1)*v0)/(1-p1)^2+(1-v1)*(se0*p1+(1-sp0)*(1-p1))*(theta0-1)^2/(p1*(theta0-1)+1)^2+(1-v0)*((1-se0)*p1+sp0*(1-p1))*(delta0-1)^2/(p1*(delta0-1)+1)^2
+  Att1_hat = I1_tt-(I1_td*(I1_td/I1_dd+I1_tp/I1_dp)+I1_tp*(I1_td/I1_dp+I1_tp/I1_pp))
+  
+  
+  
+  I_tt =(1-delta_mle)*(p_mle*(theta_mle-delta_mle)*(lead1_mle*(theta_mle-1)*(1-p_mle)-theta_mle)+(p_mle*(theta_mle-1)+1)*theta_mle)/((p_mle*(theta_mle-1)+1)*theta_mle*(theta_mle-1)*(theta_mle-delta_mle)^2)
+  I_dd =(theta_mle-1)*(p_mle*(theta_mle-delta_mle)*(lead0_mle*(1-delta_mle)*(1-p_mle)+delta_mle)+(p_mle*(delta_mle-1)+1)*delta_mle)/((p_mle*(delta_mle-1)+1)*delta_mle*(1-delta_mle)*(theta_mle-delta_mle)^2)
+  I_td = 1/(theta_mle-delta_mle)^2
+  
+  I_tp=(1-lead1_mle)*(1-delta_mle)*(theta_mle-1)*p_mle/((p_mle*(theta_mle-1)+1)*(theta_mle-delta_mle))
+  
+  I_dp=(1-lead0_mle)*(theta_mle-1)*(delta_mle-1)*p_mle/((p_mle*(delta_mle-1)+1)*(theta_mle-delta_mle))
+  
+  I_pp=(lead1_mle*(1-delta_mle)*theta_mle*(p_mle*(delta_mle-1)+1)+lead0_mle*(theta_mle-1)*delta_mle*(p_mle*(theta_mle-1)+1)+(1-delta_mle)*(theta_mle-1)*(theta_mle-delta_mle)*p_mle*(1-p_mle))/((theta_mle-delta_mle)*p_mle*(1-p_mle)*(p_mle*(theta_mle-1)+1)*(p_mle*(delta_mle-1)+1))
+  
+  
+  Att_hat = I_tt-(I_td*(I_td/I_dd+I_tp/I_dp)+I_tp*(I_td/I_dp+I_tp/I_pp))
+  
+  nait = 1/(Att_hat*n)
+ 
+}  
+
+#####計算#####
+theta=mean(theta_mle) ## 將每一次計算出的theta_mle取平均
+delta=mean(delta_mle) ## 將每一次計算出的delta_mle取平均
+prv=mean(p_mle) ## 將每一次計算出的prv_mle取平均
+se=mean(se_mle) ## 將每一次計算出的se_mle取平均
+sp=mean(sp_mle) ## 將每一次計算出的sp_mle取平均
+l1=mean(lead1_mle)
+l0=mean(lead0_mle)
+s2t=mean(v1)## 計算theta的變異數
+s2d=var(delta_mle) ## 計算delta的變異數
+Att=mean(Att_hat)
+nit=mean(nait)
+round(theta,digits = 4);round(delta,digits = 4) ## 將顯示theta_mle取到小數點後四位 ## 將顯示delta_mle取到小數點後四位
+round(se,digits = 4);round(sp,digits = 4) ## 將顯示se_mle取到小數點後四位 ## 將顯示sp_mle取到小數點後四位
+round(prv,digits = 4) ## 將顯示prv_mle取到小數點後四位
+round(l1,digits = 4);round(l0,digits = 4)
+round(Att,digits = 4)
+round(s2t,digits = 4);round(nit,digits = 4);
+
+Sys.time()-ptm
