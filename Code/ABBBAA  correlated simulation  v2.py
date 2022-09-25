@@ -15,13 +15,13 @@ from scipy.stats import poisson
 import numpy.linalg as lin
 
 sim_time=3000
-alpha, eta, gamma1, gamma2, delta = 1.0, 0.5, 0.2, 0.2, 0.2
+alpha, eta, gamma1, gamma2, delta = 1.0, 0.7, 0.12, 0.33, 0.21
 params = np.array([ [alpha], [eta], [gamma1], [gamma2], [delta]])
 covariate=[[1,0,0,0,0],[1,1,1,0,0],[1,1,0,1,0],[1,1,0,0,1],[1,0,1,0,1],[1,0,0,1,1]]
 #true mean
 tm=np.exp(np.array([ xijk  for xijk in covariate]).dot(params)).reshape(1,6).tolist()[0]
 gamma_param=0.1
-seq_size=50
+seq_size=100
 pi=(seq_size)/(seq_size*2)
 I = pi*np.array([[sum(tm),sum(tm[1:4]), tm[1] +tm[4], tm[2] + tm[5], sum(tm[3:6])],
               [sum(tm[1:4]), sum(tm[1:4]),  tm[1], tm[2], tm[3]],
@@ -204,7 +204,7 @@ V_cor=V_cor/sim_time
 
 np.set_printoptions(suppress=True,precision=5)
 print('Independent Data, seq_size = ',seq_size)
-print('True Value of parameters\n alpha：%f, eta：%f, gamma2：%f, gamma3：%f, delta：%f' %(1.0, 0.5, 0.2, 0.2, 0.2))
+print('True Value of parameters\n alpha：%f, eta：%f, gamma2：%f, gamma3：%f, delta：%f' %(1.0, 0.7, 0.12, 0.33, 0.21))
 print('MLE\n',mle_ind.mean())
 print('Sample variance of estimates\n',2*seq_size*mle_ind.var(ddof=1))
 

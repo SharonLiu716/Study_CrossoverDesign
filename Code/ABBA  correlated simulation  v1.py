@@ -32,7 +32,7 @@ I=pi*np.array([
                [sum(tm[2:4]),tm[2],tm[3],sum(tm[2:4])]
                ])
 
-
+true_value=lin.inv(I).dot(V_hat).dot(lin.inv(I))
 
 
 def Corr_Poisson(mean_true,sample_size,cor_par):
@@ -100,7 +100,7 @@ def Estimate(mean_true,sample_size,data_type,cor_par,eta0):
         2.sample variance of MLE = diag(I**(-1))
     '''
     if data_type == 'ind': 
-        data=pd.DataFrame(np.array([np.random.poisson(lam=p, size=sample_size) for p in mean_true]).T.tolist(),columns = ['Yi11', 'Yi21','Yi12', 'Yi22'])
+        data=pd.DataFrame(np.array([np.random.poisson(lam=p, size=sample_size) for p in mean_true]).T.tolist(),columns = ['Yi11', 'Yi12','Yi21', 'Yi22'])
     else:
         '''
         #np.random.seed(980716)
@@ -109,7 +109,7 @@ def Estimate(mean_true,sample_size,data_type,cor_par,eta0):
         '''
         
         #np.random.seed(980716)
-        Mu_cor = pd.DataFrame(columns = ['Mu11', 'Mu21', 'Mu12', 'Mu22'])
+        Mu_cor = pd.DataFrame(columns = ['Mu11', 'Mu12', 'Mu21', 'Mu22'])
         for i in range(0,len(mean_true),2):            
             nu=np.random.gamma(1/cor_par,cor_par,sample_size)
             #print(i,nu)
@@ -117,7 +117,7 @@ def Estimate(mean_true,sample_size,data_type,cor_par,eta0):
                 Mu_cor[Mu_cor.columns[ix+i]]=pd.DataFrame(np.multiply(np.array(param).repeat(sample_size), nu).T)
                 #print(i,ix,param)
 
-        data=pd.DataFrame(columns = ['Yi11', 'Yi21', 'Yi12', 'Yi22'])
+        data=pd.DataFrame(columns = ['Yi11', 'Yi12', 'Yi21', 'Yi22'])
         for (idx,mu) in enumerate(Mu_cor.columns):
             data[data.columns[idx]]=pd.DataFrame([np.random.poisson(p) for p in Mu_cor[mu]])
         
@@ -130,9 +130,9 @@ def Estimate(mean_true,sample_size,data_type,cor_par,eta0):
     #exp(Eta)
     eta_hat=0.5*(np.log(np.mean(data['Yi12']))+np.log(np.mean(data['Yi21']))-np.log(np.mean(data['Yi11']))-np.log(np.mean(data['Yi22'])))
     #exp(gamma)
-    gamma_hat=0.5*(np.log(np.mean(data['Yi21']))+np.log(np.mean(data['Yi22']))-np.log(np.mean(data['Yi11']))-np.log(np.mean(data['Yi12'])))
+    gamma_hat=0.5*(np.log(np.mean(data['Yi12']))+np.log(np.mean(data['Yi22']))-np.log(np.mean(data['Yi11']))-np.log(np.mean(data['Yi21'])))
     #exp(delta)
-    delta_hat=0.5*(np.log(np.mean(data['Yi12']))+np.log(np.mean(data['Yi22']))-np.log(np.mean(data['Yi11']))-np.log(np.mean(data['Yi21'])))
+    delta_hat=0.5*(np.log(np.mean(data['Yi21']))+np.log(np.mean(data['Yi22']))-np.log(np.mean(data['Yi11']))-np.log(np.mean(data['Yi12'])))
     
     # MLE
     estimate= pd.DataFrame({'alpha_hat': alpha_hat, 
@@ -158,7 +158,7 @@ def Estimate(mean_true,sample_size,data_type,cor_par,eta0):
     '''Diagonal variance matrix'''
     Var=data.var(ddof=1)
     #Var=[var(data[res],sm[idx]) for (idx,res) in enumerate(data.columns)]
-    Cov=[ data.Yi11.cov(data.Yi21), data.Yi12.cov(data.Yi22)]
+    Cov=[ data.Yi11.cov(data.Yi12), data.Yi21.cov(data.Yi22)]
     #Cov=[cov(data['Yi11'],data['Yi21'],sm[0],sm[1]),cov(data['Yi12'],data['Yi22'],sm[2],sm[3])]
     V_hat=pi*np.array([
                     [sum(Var)+2*sum(Cov), Var[1]+Cov[0]+Var[2]+Cov[1] , Var[1]+Cov[0]+Var[3]+Cov[1], sum(Var[2:4])+2*Cov[1]],

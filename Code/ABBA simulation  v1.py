@@ -14,15 +14,14 @@ from scipy.optimize import minimize
 import numpy.linalg as lin
 
 alpha,eta,gamma,delta=1.0, 0.3, 1.2, 0.2
-true_mean=[np.exp(alpha),np.exp(alpha+eta+gamma),np.exp(alpha+eta+delta),np.exp(alpha+gamma+delta)]
+tm=[np.exp(alpha),np.exp(alpha+eta+gamma),np.exp(alpha+eta+delta),np.exp(alpha+gamma+delta)]
 seq_size=200
-p1,p2=0.5,0.5
-I=np.array([[p1*(true_mean[0]+true_mean[1])+p2*(true_mean[2]+true_mean[3]), p1*true_mean[1]+p2*true_mean[2] ,p1*(true_mean[1])+p2*true_mean[3] , p2*(true_mean[2]+true_mean[3])],
-            [p1*true_mean[1]+p2*true_mean[2],p1*true_mean[1]+p2*true_mean[2], p1*true_mean[1], p2*true_mean[2] ],
-            [p1*(true_mean[1])+p2*true_mean[3],p1*true_mean[1], p1*true_mean[1]+p2*true_mean[3],p2*true_mean[3]],
-            [p2*(true_mean[2]+true_mean[3]),p2*true_mean[2],p2*true_mean[3],p2*(true_mean[2]+true_mean[3])]
-            ])
-
+Pi=seq_size/(seq_size*2)
+I = Pi*np.array([[sum(tm),tm[1]+tm[2],tm[1]+tm[3],tm[2]+tm[3]],
+                 [tm[1]+tm[2],tm[1]+tm[2],tm[1],tm[2]],
+                 [tm[1]+tm[3],tm[1],tm[1]+tm[3],tm[3]],
+                 [tm[2]+tm[3],tm[2],tm[3],tm[2]+tm[3]]                 
+                 ])
 def var(x,mean_x): # * removed
     return sum((x - mean_x)**2)/len(x)
 def cov(x, y,mean_x,mean_y): 

@@ -40,15 +40,15 @@ class CrossoverDesign():
         self.data_type = data_type
         self.cor_par = cor_par     
         self.params_value = params_value
-        self.sample_size=self.sample_size
-        self.eta0=self.eta0
+        self.sample_size=sample_size
+        self.eta0=eta0
         #由以下函數生成的變數
-        self.data,self.pi,self.Cov,self.Var= self.Data_Generate(self.cros_type,self.mean_true,self.sample_size,self.data_type,self.cor_par,self.eta0)
         self.mean_true =  self.Mean_Poisson(self.cros_type,self.params_value)
+        self.data,self.pi,self.Cov,self.Var= self.Data_Generate(self.cros_type,self.mean_true,self.sample_size,self.data_type,self.cor_par,self.eta0)
         self.estimate = self.MLE(self.cros_type, self.data)
         self.I=self.MatrixI(self.cros_type, self.pi, self.mean_true)
         self.I_hat=self.MatrixI(self.cros_type, self.pi, self.Mean_Poisson(self.cros_type, self.estimate.to_numpy()[0]))
-        self.V_hat=self.MatrixV(self.pi, self.Cov, self.Var)
+        self.V_hat=self.MatrixV(self.cros_type,self.pi, self.Cov, self.Var)
     
     
     
@@ -72,31 +72,31 @@ class CrossoverDesign():
         if data_type == 'ind': 
             data=pd.DataFrame(np.array([np.random.poisson(lam=p, size=sample_size) for p in mean_true]).T.tolist())
         else:
-            Mu_cor = pd.DataFrame()
+            Mu_cor = pd.DataFrame(columns = [*range(0,len(cros_type))])
             for i in range(0,len(mean_true),num_seq):            
                 nu=np.random.gamma(1/cor_par,cor_par,sample_size)
                 for (ix,param) in enumerate(mean_true[i:i + num_seq]):
                     Mu_cor[Mu_cor.columns[ix+i]]=pd.DataFrame(np.multiply(np.array(param).repeat(sample_size), nu).T)
-            data=pd.DataFrame()
+            data=pd.DataFrame(columns = [*range(0,len(cros_type))])
             for (idx,mu) in enumerate(Mu_cor.columns):
                 data[data.columns[idx]]=pd.DataFrame([np.random.poisson(p) for p in Mu_cor[mu]])
         #rename data column, mu_column,pi,covariance        
         if len(cros_type)==4:
             data.columns=['Yi11', 'Yi12','Yi21', 'Yi22']
-            Mu_cor.columns=['Mu11', 'Mu12','Mu21', 'Mu22']
+            #Mu_cor.columns=['Mu11', 'Mu12','Mu21', 'Mu22']
             Pi=sample_size/(sample_size)*2
             Cov=[ data.Yi11.cov(data.Yi12), data.Yi21.cov(data.Yi22)]
             Var=data.var(ddof=1)
         elif len(cros_type)==6:
             data.columns=['Yi11', 'Yi12','Yi13','Yi21','Yi22', 'Yi23']
-            col_mu=['Mu11', 'Mu12','Mu13','Mu21','Mu22', 'Mu23']
+            #col_mu=['Mu11', 'Mu12','Mu13','Mu21','Mu22', 'Mu23']
             Pi=sample_size/(sample_size)*2
             Cov=[ data.Yi11.cov(data.Yi12), data.Yi11.cov(data.Yi13),data.Yi12.cov(data.Yi13), 
                   data.Yi21.cov(data.Yi22), data.Yi21.cov(data.Yi23),data.Yi22.cov(data.Yi23)]
             Var=data.var(ddof=1)
         elif len(cros_type)==9:
             data.columns=['Yi11', 'Yi12','Yi13','Yi21','Yi22', 'Yi23','Yi31','Yi32', 'Yi33']
-            col_mu=['Mu11', 'Mu12','Mu13','Mu21','Mu22', 'Mu23','Mu31','Mu32', 'Mu33']
+            #col_mu=['Mu11', 'Mu12','Mu13','Mu21','Mu22', 'Mu23','Mu31','Mu32', 'Mu33']
             Pi=sample_size/(sample_size)*3
             Cov=[ data.Yi11.cov(data.Yi12), data.Yi11.cov(data.Yi13),data.Yi12.cov(data.Yi13), 
                   data.Yi21.cov(data.Yi22), data.Yi21.cov(data.Yi23),data.Yi22.cov(data.Yi23),
@@ -359,14 +359,14 @@ class CrossoverDesign():
                         [sum(Var[2:4])+2*Cov[1],Var[2]+Cov[1],Var[3]+Cov[1],sum(Var[2:4])+2*Cov[1]]
                              ])
         elif cros_type=='ABBBAA':       
-            V = pi*np.array([[sum(Var)+2*sum(Cov),Var[1]+Var[2]+Var[3]+sum(Cov)+Cov[2]-Cov[5],Var[1]+Var[4]+sum(Cov)-Cov[1]-Cov[4],Var[2]+Var[5]+sum(Cov)-Cov[0]-Cov[3],sum(Var[3:6])+2*sum(Cov[3:6])],
+            V = Pi*np.array([[sum(Var)+2*sum(Cov),Var[1]+Var[2]+Var[3]+sum(Cov)+Cov[2]-Cov[5],Var[1]+Var[4]+sum(Cov)-Cov[1]-Cov[4],Var[2]+Var[5]+sum(Cov)-Cov[0]-Cov[3],sum(Var[3:6])+2*sum(Cov[3:6])],
                          [Var[1]+Var[2]+Var[3]+sum(Cov)+Cov[2]-Cov[5],Var[1]+Var[2]+Var[3]+2*Cov[2],Var[1]+Cov[2]+Cov[3],Var[2]+Cov[2]+Cov[4],Var[3]+Cov[3]+Cov[4]],
                          [Var[1]+Var[4]+sum(Cov)-Cov[1]-Cov[4],Var[1]+Cov[2]+Cov[3],Var[1]+Var[4],Cov[2]+Cov[5],Var[4]+Cov[3]+Cov[5]],
                          [Var[2]+Var[5]+sum(Cov)-Cov[0]-Cov[3],Var[2]+Cov[2]+Cov[4],Cov[2]+Cov[5],Var[2]+Var[5],Var[5]+Cov[4]+Cov[5]],
                          [sum(Var[3:6])+2*sum(Cov[3:6]),Var[3]+Cov[3]+Cov[4],Var[4]+Cov[3]+Cov[5],Var[5]+Cov[4]+Cov[5],sum(Var[3:6])+2*sum(Cov[3:6])]
                         ])
         elif cros_type=='AABABABAA':
-            V = pi*np.array([[sum(Var)+2*sum(Cov),Var[2]+Var[4]+Var[6]+sum(Cov)-Cov[0]-Cov[4]-Cov[8],Var[1]+Var[4]+Var[7]+sum(Cov)-Cov[1]-Cov[4]-Cov[7],Var[2]+Var[5]+Var[8]+sum(Cov)-Cov[0]-Cov[3]-Cov[6],sum(Var[3:6])+2*sum(Cov[3:6]),sum(Var[6:9])+2*sum(Cov[6:9])],
+            V = Pi*np.array([[sum(Var)+2*sum(Cov),Var[2]+Var[4]+Var[6]+sum(Cov)-Cov[0]-Cov[4]-Cov[8],Var[1]+Var[4]+Var[7]+sum(Cov)-Cov[1]-Cov[4]-Cov[7],Var[2]+Var[5]+Var[8]+sum(Cov)-Cov[0]-Cov[3]-Cov[6],sum(Var[3:6])+2*sum(Cov[3:6]),sum(Var[6:9])+2*sum(Cov[6:9])],
                          [Var[2]+Var[4]+Var[6]+sum(Cov)-Cov[0]-Cov[4]-Cov[8],Var[2]+Var[4]+Var[6],Var[4]+Cov[2]+Cov[6],Var[2]+Cov[5]+Cov[7],Var[4]+Cov[3]+Cov[5],Var[6]+Cov[6]+Cov[7]],
                          [Var[1]+Var[4]+Var[7]+sum(Cov)-Cov[1]-Cov[4]-Cov[7],Var[4]+Cov[2]+Cov[6],Var[1]+Var[4]+Var[7],Cov[2]+Cov[5]+Cov[8],Var[4]+Cov[3]+Cov[5],Var[7]+Cov[6]+Cov[8]],
                          [Var[2]+Var[5]+Var[8]+sum(Cov)-Cov[0]-Cov[3]-Cov[6],Var[2]+Cov[5]+Cov[7],Cov[2]+Cov[5]+Cov[8],Var[2]+Var[5]+Var[8],Var[5]+Cov[4]+Cov[5],Var[8]+Cov[7]+Cov[8]],
@@ -376,7 +376,7 @@ class CrossoverDesign():
                         ])
             
         elif cros_type=='ABCBCACAB':
-            V = pi*np.array([[sum(Var)+2*sum(Cov),Var[1]+Var[3]+Var[8]+sum(Cov)-Cov[1]-Cov[5]-Cov[6],Var[2]+Var[4]+Var[6]+sum(Cov)-Cov[0]-Cov[4]-Cov[8],Var[1]+Var[4]+Var[7]+sum(Cov)-Cov[1]+Cov[2]-Cov[4]-Cov[7],Var[2]+Var[5]+Var[8]+sum(Cov)-Cov[0]-Cov[3]-Cov[6],sum(Var[3:6])+2*sum(Cov[3:6]),sum(Var[6:9])+2*sum(Cov[6:9])],
+            V = Pi*np.array([[sum(Var)+2*sum(Cov),Var[1]+Var[3]+Var[8]+sum(Cov)-Cov[1]-Cov[5]-Cov[6],Var[2]+Var[4]+Var[6]+sum(Cov)-Cov[0]-Cov[4]-Cov[8],Var[1]+Var[4]+Var[7]+sum(Cov)-Cov[1]+Cov[2]-Cov[4]-Cov[7],Var[2]+Var[5]+Var[8]+sum(Cov)-Cov[0]-Cov[3]-Cov[6],sum(Var[3:6])+2*sum(Cov[3:6]),sum(Var[6:9])+2*sum(Cov[6:9])],
                          [Var[1]+Var[3]+Var[8]+sum(Cov)-Cov[1]-Cov[5]-Cov[6],Var[1]+Var[3]+Var[8],Cov[2]+Cov[3]+Cov[7],Var[2]+Cov[3]+Cov[8],Var[8]+Cov[2]+Cov[4],Var[3]+Cov[3]+Cov[4],Var[8]+Cov[7]+Cov[8]],
                          [Var[2]+Var[4]+Var[6]+sum(Cov)-Cov[0]-Cov[4]-Cov[8],Cov[2]+Cov[3]+Cov[7],Var[2]+Var[4]+Var[6],Var[4]+Cov[2]+Cov[6],Var[2]+Cov[5]+Cov[7],Var[4]+Cov[3]+Cov[5],Var[6]+Cov[6]+Cov[7]],
                          [Var[1]+Var[4]+Var[7]+sum(Cov)-Cov[1]+Cov[2]-Cov[4]-Cov[7],Var[2]+Cov[3]+Cov[8],Var[4]+Cov[2]+Cov[6],Var[2]+Var[4]+Var[7],Cov[2]+Cov[5]+Cov[8],Var[4]+Cov[3]+Cov[5],Var[7]+Cov[6]+Cov[8]],
@@ -385,7 +385,7 @@ class CrossoverDesign():
                          [sum(Var[6:9])+2*sum(Cov[6:9]),Var[8]+Cov[7]+Cov[8],Var[6]+Cov[6]+Cov[7],Var[7]+Cov[6]+Cov[8],Var[8]+Cov[7]+Cov[8],0,sum(Var[6:9])+2*sum(Cov[6:9])]
                         ])
         elif cros_type=='BACACBBCA':        
-            V = pi*np.array([[sum(Var)+2*sum(Cov),Var[0]+Var[5]+Var[6]+sum(Cov)-Cov[2]-Cov[3]-Cov[8],Var[2]+Var[4]+Var[7]+sum(Cov)-Cov[0]-Cov[4]-Cov[7],Var[1]+Var[4]+Var[7]+sum(Cov)-Cov[1]-Cov[4]-Cov[7],Var[2]+Var[5]+Var[8]+sum(Cov)-Cov[0]-Cov[3]-Cov[6],sum(Var[3:6])+2*sum(Cov[3:6]),sum(Var[6:9])+2*sum(Cov[6:9])],
+            V = Pi*np.array([[sum(Var)+2*sum(Cov),Var[0]+Var[5]+Var[6]+sum(Cov)-Cov[2]-Cov[3]-Cov[8],Var[2]+Var[4]+Var[7]+sum(Cov)-Cov[0]-Cov[4]-Cov[7],Var[1]+Var[4]+Var[7]+sum(Cov)-Cov[1]-Cov[4]-Cov[7],Var[2]+Var[5]+Var[8]+sum(Cov)-Cov[0]-Cov[3]-Cov[6],sum(Var[3:6])+2*sum(Cov[3:6]),sum(Var[6:9])+2*sum(Cov[6:9])],
                              [Var[0]+Var[5]+Var[6]+sum(Cov)-Cov[2]-Cov[3]-Cov[8],Var[0]+Var[5]+Var[6] ,Cov[1]+Cov[5]+Cov[6] ,Cov[0]+Cov[5]+Cov[6] ,Var[5]+Cov[1]+Cov[7] ,Var[5]+Cov[4]+Cov[5] , Var[6]+Cov[6]+Cov[7]],
                              [Var[2]+Var[4]+Var[7]+sum(Cov)-Cov[0]-Cov[4]-Cov[7],Cov[1]+Cov[5]+Cov[6] ,Var[2]+Var[4]+Var[7] ,Var[4]+Var[7]+Cov[2] ,Var[2]+Cov[5]+Cov[8] ,Var[0]+Var[5]+Var[6]+sum(Cov)-Cov[2]-Cov[3]-Cov[8] , Var[7]+Cov[6]+Cov[8]],
                              [Var[1]+Var[4]+Var[7]+sum(Cov)-Cov[1]-Cov[4]-Cov[7],Cov[0]+Cov[5]+Cov[6] ,Var[4]+Var[7]+Cov[2] ,Var[1]+Var[4]+Var[7] ,Cov[2]+Cov[5]+Cov[8] , Var[4]+Cov[3]+Cov[5] , Var[7]+Cov[6]+Cov[8]],
@@ -395,7 +395,7 @@ class CrossoverDesign():
                              ])
             
         elif cros_type=='BBAACBCAC':
-            V = pi*np.array([[sum(Var)+2*sum(Cov),Var[0]+Var[1]+Var[5]+sum(Cov[0:7])+Cov[0]-Cov[3]+Cov[5],Var[4]+Var[6]+Var[8]+sum(Cov[3:9])-Cov[4]+Cov[7],Var[1]+Var[4]+Var[7]+sum(Cov)-Cov[1]-Cov[4]-Cov[7],Var[2]+Var[5]+Var[8]+sum(Cov)-Cov[0]-Cov[3]+Cov[6],sum(Var[3:6])+2*sum(Cov[3:6]),sum(Var[6:9])+2*sum(Cov[6:9])],
+            V = Pi*np.array([[sum(Var)+2*sum(Cov),Var[0]+Var[1]+Var[5]+sum(Cov[0:7])+Cov[0]-Cov[3]+Cov[5],Var[4]+Var[6]+Var[8]+sum(Cov[3:9])-Cov[4]+Cov[7],Var[1]+Var[4]+Var[7]+sum(Cov)-Cov[1]-Cov[4]-Cov[7],Var[2]+Var[5]+Var[8]+sum(Cov)-Cov[0]-Cov[3]+Cov[6],sum(Var[3:6])+2*sum(Cov[3:6]),sum(Var[6:9])+2*sum(Cov[6:9])],
                              [Var[0]+Var[1]+Var[5]+sum(Cov[0:7])+Cov[0]-Cov[3]+Cov[5],Var[0]+Var[1]+2*Cov[0]+Cov[5],Cov[5],Var[1]+Cov[0]+Cov[5],Cov[1]+Cov[2]+Var[5],Var[5]+Cov[4]+Cov[5],0],
                              [Var[4]+Var[6]+Var[8]+sum(Cov[3:9])-Cov[4]+Cov[7],Cov[5],Var[4]+Var[6]+Var[8]+2*Cov[7],Var[4]+Cov[6]+Cov[8],Var[8]+Cov[5]+Cov[7],Var[4]+Cov[3]+Cov[5],Var[6]+Var[8]+sum(Cov[6:9])+Cov[7]],
                              [Var[1]+Var[4]+Var[7]+sum(Cov)-Cov[1]-Cov[4]-Cov[7],Var[1]+Cov[0]+Cov[5],Var[4]+Cov[6]+Cov[8],Var[1]+Var[4]+Var[7],Cov[2]-Cov[5]+Cov[8],Var[4]+Cov[3]+Cov[5],Var[7]+Cov[6]+Cov[8]],
@@ -407,4 +407,62 @@ class CrossoverDesign():
         
  
 
+sim_time=2000
+design=['ABBA','ABBBAA','AABABABAA','ABCBCACAB','BACACBBCA','BBAACBCAC']   
+pv_by_design=[[1.0,0.67,0.23,0.12],[1.0,0.67,0.23,0.26,0.12],[1.0,0.67,0.23,0.26,0.12,0.13],[1.0,0.73,0.67,0.23,0.26,0.12,0.13],[1.0,0.73,0.67,0.23,0.26,0.12,0.13],[1.0,0.73,0.67,0.23,0.26,0.12,0.13]]#根據不同交叉設計產生的參數須給定真值
+ 
+#next:simulation and export to excel
+
+np.random.seed(980716)
+mle_ind,mle_cor=pd.DataFrame(),pd.DataFrame()
+I_ind, V_ind,I_cor, V_cor = 0, 0, 0, 0
+CROS_ind=CrossoverDesign(cros_type='ABCBCACAB',data_type='ind',cor_par=0.1,params_value=[1.0,0.73,0.67,0.23,0.26,0.12,0.13],sample_size=50,eta0=0)
+CROS_cor=CrossoverDesign(cros_type='ABCBCACAB',data_type='cor',cor_par=0.1,params_value=[1.0,0.73,0.67,0.23,0.26,0.12,0.13],sample_size=50,eta0=0)
+I=CROS_ind.I
+for i in range(sim_time):    
+    #independent
+    mle_i=CROS_ind.estimate
+    mle_ind = mle_ind.append(mle_i,ignore_index=True)
+    I_i=CROS_ind.I_hat
+    V_i=CROS_ind.V_hat
+    I_ind+=I_i
+    V_ind+=V_i
+    mle_i=CROS_cor.estimate
+    mle_cor = mle_cor.append(mle_i,ignore_index=True)
+    I_i=CROS_cor.I_hat
+    V_i=CROS_cor.V_hat
+    I_cor+=I_i
+    V_cor+=V_i
+
     
+
+I_ind=I_ind/sim_time
+V_ind=V_ind/sim_time
+I_cor=I_cor/sim_time
+V_cor=V_cor/sim_time
+np.set_printoptions(suppress=True,precision=5)
+print('Independent Data, seq_size = ',seq_size)
+print('True Value of parameters\n alpha：%f, eta：%f, gamma：%f, delta：%f' %(1.0, 0.5, 0.2, 0.2))
+print('MLE\n',mle_ind.mean())
+print('Sample variance of estimates\n',3*seq_size*mle_ind.var(ddof=1))
+
+print('Inverse of matrix I\n',lin.inv(I_ind))
+print('S\n',mle_ind.cov(ddof=1))
+print('N*S\n',3*seq_size*mle_ind.cov(ddof=1))
+print('inv(I)*V*inv(I)\n',lin.inv(I_ind).dot(V_ind).dot(lin.inv(I_ind)))
+
+print('Estimate of matrix I\n',I_ind)
+print('Estimate of matrix V\n',V_ind)
+
+print('Correlated Data (alpha =10 ,beta = 0.1), seq_size = ',seq_size)
+print('True Value of parameters\n alpha：%f, eta：%f, gamma：%f, delta：%f' %(1.0, 0.5, 0.2, 0.2))#1.0, 1.0, 1.0, 0.5
+print('MLE\n',mle_cor.mean())
+print('Sample variance of estimates\n',3*seq_size*mle_cor.var(ddof=1))
+
+print('Inverse of matrix I\n',lin.inv(I_cor))
+print('S\n',mle_cor.cov(ddof=1))
+print('N*S\n',3*seq_size*mle_cor.cov(ddof=1))
+print('inv(I)*V*inv(I)\n',lin.inv(I_cor).dot(V_cor).dot(lin.inv(I_cor)))
+
+print('Estimate of matrix I\n',I_cor)
+print('Estimate of matrix V\n',V_cor)
