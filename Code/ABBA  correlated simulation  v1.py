@@ -17,7 +17,7 @@ import numpy.linalg as lin
 from scipy.optimize import fsolve
 from sympy import *
 sim_time=1000
-alpha,eta,gamma,delta=1.0, 0.5, 0.2, 0.2
+alpha,eta,gamma,delta=1.0, 0.5, 0.2, 0.1
 params = np.array([ [alpha], [eta], [gamma], [delta]])
 covariate=[[1,0,0,0],[1,1,1,0],[1,1,0,1],[1,0,1,1]]
 #true mean

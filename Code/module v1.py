@@ -23,9 +23,10 @@ class CrossoverDesign()
     
 
 '''
-
+import sys
 import scipy
 import math
+import openpyxl
 import numpy as np
 import pandas as pd
 import scipy.stats
@@ -84,20 +85,20 @@ class CrossoverDesign():
         if len(cros_type)==4:
             data.columns=['Yi11', 'Yi12','Yi21', 'Yi22']
             #Mu_cor.columns=['Mu11', 'Mu12','Mu21', 'Mu22']
-            Pi=sample_size/(sample_size)*2
+            Pi=sample_size/(sample_size*2)
             Cov=[ data.Yi11.cov(data.Yi12), data.Yi21.cov(data.Yi22)]
             Var=data.var(ddof=1)
         elif len(cros_type)==6:
             data.columns=['Yi11', 'Yi12','Yi13','Yi21','Yi22', 'Yi23']
             #col_mu=['Mu11', 'Mu12','Mu13','Mu21','Mu22', 'Mu23']
-            Pi=sample_size/(sample_size)*2
+            Pi=sample_size/(sample_size*2)
             Cov=[ data.Yi11.cov(data.Yi12), data.Yi11.cov(data.Yi13),data.Yi12.cov(data.Yi13), 
                   data.Yi21.cov(data.Yi22), data.Yi21.cov(data.Yi23),data.Yi22.cov(data.Yi23)]
             Var=data.var(ddof=1)
         elif len(cros_type)==9:
             data.columns=['Yi11', 'Yi12','Yi13','Yi21','Yi22', 'Yi23','Yi31','Yi32', 'Yi33']
             #col_mu=['Mu11', 'Mu12','Mu13','Mu21','Mu22', 'Mu23','Mu31','Mu32', 'Mu33']
-            Pi=sample_size/(sample_size)*3
+            Pi=sample_size/(sample_size*3)
             Cov=[ data.Yi11.cov(data.Yi12), data.Yi11.cov(data.Yi13),data.Yi12.cov(data.Yi13), 
                   data.Yi21.cov(data.Yi22), data.Yi21.cov(data.Yi23),data.Yi22.cov(data.Yi23),
                   data.Yi31.cov(data.Yi32), data.Yi31.cov(data.Yi33),data.Yi32.cov(data.Yi33)]
@@ -408,61 +409,82 @@ class CrossoverDesign():
  
 
 sim_time=2000
-design=['ABBA','ABBBAA','AABABABAA','ABCBCACAB','BACACBBCA','BBAACBCAC']   
-pv_by_design=[[1.0,0.67,0.23,0.12],[1.0,0.67,0.23,0.26,0.12],[1.0,0.67,0.23,0.26,0.12,0.13],[1.0,0.73,0.67,0.23,0.26,0.12,0.13],[1.0,0.73,0.67,0.23,0.26,0.12,0.13],[1.0,0.73,0.67,0.23,0.26,0.12,0.13]]#根據不同交叉設計產生的參數須給定真值
- 
+design_type=['ABBA','ABBBAA','AABABABAA','ABCBCACAB','BACACBBCA','BBAACBCAC']   
+pv_by_design=[[1.0,0.5,0.2,0.1],[1.0,0.67,0.23,0.26,0.12],[1.0,0.67,0.23,0.26,0.12,0.13],[1.0,0.73,0.67,0.23,0.26,0.12,0.13],[1.0,0.73,0.67,0.23,0.26,0.12,0.13],[1.0,0.73,0.67,0.23,0.26,0.12,0.13]]#根據不同交叉設計產生的參數須給定真值
+seq_size=[25,50,100,150,200]
 #next:simulation and export to excel
 
-np.random.seed(980716)
-mle_ind,mle_cor=pd.DataFrame(),pd.DataFrame()
-I_ind, V_ind,I_cor, V_cor = 0, 0, 0, 0
-CROS_ind=CrossoverDesign(cros_type='ABCBCACAB',data_type='ind',cor_par=0.1,params_value=[1.0,0.73,0.67,0.23,0.26,0.12,0.13],sample_size=50,eta0=0)
-CROS_cor=CrossoverDesign(cros_type='ABCBCACAB',data_type='cor',cor_par=0.1,params_value=[1.0,0.73,0.67,0.23,0.26,0.12,0.13],sample_size=50,eta0=0)
-I=CROS_ind.I
-for i in range(sim_time):    
-    #independent
-    mle_i=CROS_ind.estimate
-    mle_ind = mle_ind.append(mle_i,ignore_index=True)
-    I_i=CROS_ind.I_hat
-    V_i=CROS_ind.V_hat
-    I_ind+=I_i
-    V_ind+=V_i
-    mle_i=CROS_cor.estimate
-    mle_cor = mle_cor.append(mle_i,ignore_index=True)
-    I_i=CROS_cor.I_hat
-    V_i=CROS_cor.V_hat
-    I_cor+=I_i
-    V_cor+=V_i
-
+def Simulation(runtime,design_type,pv,seqsize):
+    mle_ind,mle_cor=pd.DataFrame(),pd.DataFrame()
+    I_ind, V_ind,I_cor, V_cor = 0, 0, 0, 0
+    for i in range(runtime):    
+        #independent
+        CROS_ind=CrossoverDesign(cros_type=design_type,data_type='ind',cor_par=0.1,params_value=pv,sample_size=seqsize,eta0=0)
+        mle_i=CROS_ind.estimate
+        mle_ind = mle_ind.append(mle_i,ignore_index=True)
+        I_i=CROS_ind.I_hat
+        V_i=CROS_ind.V_hat
+        I_ind+=I_i
+        V_ind+=V_i
+        CROS_cor=CrossoverDesign(cros_type=design_type,data_type='cor',cor_par=0.1,params_value=pv,sample_size=seqsize,eta0=0)
+        mle_i=CROS_cor.estimate
+        mle_cor = mle_cor.append(mle_i,ignore_index=True)
+        I_i=CROS_cor.I_hat
+        V_i=CROS_cor.V_hat
+        I_cor+=I_i
+        V_cor+=V_i
     
 
-I_ind=I_ind/sim_time
-V_ind=V_ind/sim_time
-I_cor=I_cor/sim_time
-V_cor=V_cor/sim_time
-np.set_printoptions(suppress=True,precision=5)
-print('Independent Data, seq_size = ',seq_size)
-print('True Value of parameters\n alpha：%f, eta：%f, gamma：%f, delta：%f' %(1.0, 0.5, 0.2, 0.2))
-print('MLE\n',mle_ind.mean())
-print('Sample variance of estimates\n',3*seq_size*mle_ind.var(ddof=1))
+    I_ind=I_ind/sim_time
+    V_ind=V_ind/sim_time
+    I_cor=I_cor/sim_time
+    V_cor=V_cor/sim_time
+    return mle_ind.mean(),lin.inv(I_ind).dot(V_ind).dot(lin.inv(I_ind)),mle_ind.cov(ddof=1),mle_cor.mean(),lin.inv(I_cor).dot(V_cor).dot(lin.inv(I_cor)),mle_cor.cov(ddof=1)
 
-print('Inverse of matrix I\n',lin.inv(I_ind))
-print('S\n',mle_ind.cov(ddof=1))
-print('N*S\n',3*seq_size*mle_ind.cov(ddof=1))
-print('inv(I)*V*inv(I)\n',lin.inv(I_ind).dot(V_ind).dot(lin.inv(I_ind)))
+np.random.seed(980716)
+output_path="C:/Github/Study_CrossoverDesign/SimOutput"
+for (ix,design) in enumerate(design_type):
+    #writer = openpyxl.Workbook()
+    
+    writer=pd.ExcelWriter(output_path+'/{}.xlsx'.format(design), engine="openpyxl")
+    num_seq= 2 if len(design)!=9 else 3
+    
+    for seq in seq_size:        
+        MLE_ind,mb_ind,cov_ind,MLE_cor,mb_cor,cov_cor=Simulation(runtime=2000, design_type=design, pv=pv_by_design[ix], seqsize=seq)
+        sys.stdout.write('\rReading : '+design+str(seq))
+        np.set_printoptions(suppress=True,precision=5)
+        MLE_ind.to_excel(writer, sheet_name="MLE"+str(seq), engine='openpyxl', encoding='utf_8_sig')        
+        pd.DataFrame(mb_ind).to_excel(writer, sheet_name="invI_V_inv"+str(seq), engine='openpyxl', encoding='utf_8_sig')
+        pd.DataFrame(cov_ind).to_excel(writer, sheet_name="S"+str(seq), engine='openpyxl', encoding='utf_8_sig')
+        pd.DataFrame((num_seq*seq*cov_ind)).to_excel(writer, sheet_name="NS"+str(seq), engine='openpyxl', encoding='utf_8_sig')
+        MLE_cor.to_excel(writer, sheet_name="MLE"+str(seq), engine='openpyxl', encoding='utf_8_sig')
+        pd.DataFrame(mb_cor).to_excel(writer, sheet_name="invI_V_inv"+str(seq), engine='openpyxl', encoding='utf_8_sig')
+        pd.DataFrame(cov_cor).to_excel(writer, sheet_name="S"+str(seq), engine='openpyxl', encoding='utf_8_sig')
+        pd.DataFrame((num_seq*seq*cov_cor)).to_excel(writer, sheet_name="NS"+str(seq), engine='openpyxl', encoding='utf_8_sig')
+        writer.save()
+    writer.close()
 
-print('Estimate of matrix I\n',I_ind)
-print('Estimate of matrix V\n',V_ind)
+import openpyxl
+output_path="C:\\Github\\Study_CrossoverDesig\\SimOutput"
+writer=pd.ExcelWriter(output_path+'\\{}.xlsx'.format(design), engine="openpyxl")
+num_seq= 2 if len(design)!=9 else 3
+sys.stdout.write('\rReading : '+design+seq)
 
-print('Correlated Data (alpha =10 ,beta = 0.1), seq_size = ',seq_size)
-print('True Value of parameters\n alpha：%f, eta：%f, gamma：%f, delta：%f' %(1.0, 0.5, 0.2, 0.2))#1.0, 1.0, 1.0, 0.5
-print('MLE\n',mle_cor.mean())
-print('Sample variance of estimates\n',3*seq_size*mle_cor.var(ddof=1))
+    MLE_ind.to_excel(writer, sheet_name="MLE"+seq, engine='openpyxl', encoding='utf_8_sig')
+    mb_ind.to_excel(writer, sheet_name="invI*V*inv"+seq, engine='openpyxl', encoding='utf_8_sig')
+    cov_ind.to_excel(writer, sheet_name="S"+seq, engine='openpyxl', encoding='utf_8_sig')
+    (num_seq*seq*cov_ind).to_excel(writer, sheet_name="N*S"+seq, engine='openpyxl', encoding='utf_8_sig')
+    df.to_excel(output_path+'\\{}.xlsx'.format(data_path[1][k]), engine='openpyxl', encoding='utf_8_sig')
+writer.save()
+writer.close()
 
-print('Inverse of matrix I\n',lin.inv(I_cor))
-print('S\n',mle_cor.cov(ddof=1))
-print('N*S\n',3*seq_size*mle_cor.cov(ddof=1))
-print('inv(I)*V*inv(I)\n',lin.inv(I_cor).dot(V_cor).dot(lin.inv(I_cor)))
+    # append 到part number list
+path = "C:\\Github\\Study_CrossoverDesig\SimOutput"
+book = load_workbook(path)
+writer = pd.ExcelWriter(path, engine = 'openpyxl')
 
-print('Estimate of matrix I\n',I_cor)
-print('Estimate of matrix V\n',V_cor)
+writer.book = book
+df_product.to_excel(writer, sheet_name = 'product_list', encoding='utf_8_sig', index=False)
+part_product_mat.to_excel(writer, sheet_name = 'part_product_matrix', encoding='utf_8_sig', index=True)
+writer.save()
+writer.close()
