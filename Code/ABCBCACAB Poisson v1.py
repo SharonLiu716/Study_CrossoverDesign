@@ -32,7 +32,7 @@ tm=[np.exp(alpha), np.exp(alpha + eta1+ gamma1), np.exp(alpha + eta2 + gamma2),
     np.exp(alpha + eta1 + delta1), np.exp(alpha + eta2 + gamma1 + delta1),np.exp(alpha + gamma2 + delta1),
     np.exp(alpha + eta2 +delta2), np.exp(alpha + gamma1 + delta2), np.exp(alpha + eta1 + gamma2 + delta2)]
 seq_size=75
-pi=(seq_size)/(seq_size*9)
+pi=(seq_size)/(seq_size*3)
 I = pi*np.array([  [sum(tm), tm[1]+tm[3]+tm[8], tm[2]+tm[4]+tm[6], tm[1]+tm[4]+tm[7], tm[2]+tm[5]+tm[8], tm[3]+tm[4]+tm[5], tm[6]+tm[7]+tm[8]],
                 [tm[1]+tm[3]+tm[8],tm[1]+tm[3]+tm[8], 0, tm[1], tm[8], tm[3], tm[8] ],
                 [tm[2]+tm[4]+tm[6],0, tm[2]+tm[4]+tm[6], tm[4], tm[2], tm[4], tm[6]],

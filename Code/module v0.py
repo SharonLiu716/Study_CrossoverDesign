@@ -71,37 +71,43 @@ def Mean_Poisson(cros_type,params_value):
     2.params_value:若帶入的是真值則為真實平均值，若為MLE則為估計量
     
     '''
+    cros_type='ABCBCACAB'
     #找出交叉設計中B藥與C藥的組別與時間點
-    loc_B=np.array([[i,1] for i, w in enumerate(cros_type) if 'B' in w])
-    loc_C=np.array([[i,2] for i, w in enumerate(cros_type) if 'C' in w])
+    
+    loc_B=np.argwhere(np.array(list(cros_type)) =='B')
+    loc_C=np.argwhere(np.array(list(cros_type)) =='C')
     #只有B藥
+    
+    
     if len(loc_C) == 0:
         #2X2 e.g. ABBA
         if len(cros_type)==4:
             tao,eta,gamma,delta=params_value
-            params = np.array([ [tao], [eta],  [gamma], [delta]])
-            covariate=np.array([[1,0,0,0],[1,0,1,0],[1,0,0,1],[1,0,1,1]])
-            covariate[tuple(loc_B.T)] = 1
+            params = np.array([tao,eta,gamma,delta])
+            covariate=np.array([[1,1,1,1],[0,1,1,0],[0,1,0,1],[0,0,1,1]])
+            covariate[1,tuple(loc_B.T)] = 1
         #2X3 e.g. ABBBAA
         if len(cros_type)==6:
             tao,eta,gamma1,gamma2,delta=params_value
-            params = np.array([ [tao], [eta], [gamma1], [gamma2], [delta]])
-            covariate=np.array([[1,0,0,0,0],[1,0,1,0,0],[1,0,0,1,0],[1,0,0,0,1],[1,0,1,0,1],[1,0,0,1,1]])
-            covariate[tuple(loc_B.T)] = 1
+            params = np.array([tao,eta,gamma1,gamma2,delta])
+            covariate=np.array([[1,1,1,1,1,1],[0,0,0,0,0,0],[0,1,0,0,1,0],[0,0,1,0,0,1],[0,0,0,1,1,1]])   
+            covariate[1,tuple(loc_B.T)] = 1
         #3X3 e.g.AABABABAA
         if len(cros_type)==9:
             tao,eta,gamma1,gamma2,delta1,delta2=params_value
-            params = np.array([ [tao], [eta], [gamma1], [gamma2], [delta1], [delta2]])
-            covariate=np.array([[1,0,0,0,0,0],[1,0,1,0,0,0],[1,0,0,1,0,0],[1,0,0,0,1,0],[1,0,1,0,1,0],[1,0,0,1,1,0],[1,0,0,0,0,1],[1,0,1,0,0,1],[1,0,0,1,0,1]])
-            covariate[tuple(loc_B.T)] = 1
+            params = np.array([ tao,eta,gamma1,gamma2,delta1,delta2])
+            covariate=np.array([[1,1,1]*3,[0,0,0]*3,[0,1,0]*3,[0,0,1]*3,[0,0,0,1,1,1,0,0,0],[0,0,0,0,0,0,1,1,1]])
+            covariate[1,tuple(loc_B.T)] = 1
     #3X3 有B藥與C藥    
     elif (len(loc_C) != 0) and (len(cros_type)==9):
         tao,eta1,eta2,gamma1,gamma2,delta1,delta2=params_value
-        params = np.array([ [tao], [eta1], [eta2], [gamma1], [gamma2], [delta1], [delta2]])
-        covariate=np.array([[1,0,0,0,0,0,0],[1,0,0,1,0,0,0],[1,0,0,0,1,0,0],[1,0,0,0,0,1,0],[1,0,0,1,0,1,0],[1,0,0,0,1,1,0],[1,0,0,0,0,0,1],[1,0,0,1,0,0,1],[1,0,0,0,1,0,1]])
-        covariate[tuple(loc_B.T)] = 1
-        covariate[tuple(loc_C.T)] = 1
-    return np.exp(np.array([ xijk  for xijk in covariate]).dot(params)).reshape(1,len(cros_type)).tolist()[0]
+        params = np.array([tao,eta1,eta2,gamma1,gamma2,delta1,delta2])
+        covariate=np.array([[1,1,1]*3,[0,0,0]*3,[0,0,0]*3,[0,1,0]*3,[0,0,1]*3,[0,0,0,1,1,1,0,0,0],[0,0,0,0,0,0,1,1,1]])
+        covariate[1,tuple(loc_B.T)] = 1
+        covariate[2,tuple(loc_C.T)] = 1
+    I=pi*np.array([[np.dot(tm,covariate[i]*covariate[j]) for j in range(len(params))] for i in range(len(params))])
+    V=
+    return np.exp(np.dot(params,covariate))
   
 
 def MLE(cros_type,data,initial_guess):

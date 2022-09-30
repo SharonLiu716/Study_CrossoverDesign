@@ -18,48 +18,17 @@ from scipy.optimize import fsolve
 from sympy import *
 sim_time=1000
 alpha,eta,gamma,delta=1.0, 0.5, 0.2, 0.1
-params = np.array([ [alpha], [eta], [gamma], [delta]])
-covariate=[[1,0,0,0],[1,1,1,0],[1,1,0,1],[1,0,1,1]]
+params = np.array([alpha,eta,gamma,delta])
+covariate=np.array([[1,1,1,1],[0,1,1,0],[0,1,0,1],[0,0,1,1]])
+tm=np.exp(np.dot(params.transpose(),covariate))
 #true mean
-tm=np.exp(np.array([ xijk  for xijk in covariate]).dot(params)).reshape(1,4).tolist()[0]
 gamma_param=0.1#beta
 seq_size=100
 pi=(seq_size)/(seq_size*2)
-I=pi*np.array([
-               [sum(tm), tm[1]+tm[2], tm[1]+tm[3], sum(tm[2:4])],
-               [tm[1]+tm[2],sum(tm[1:3]), tm[1], tm[2]],
-               [tm[1]+tm[3],tm[1], tm[1]+tm[3],tm[3]],
-               [sum(tm[2:4]),tm[2],tm[3],sum(tm[2:4])]
-               ])
+I=pi*np.array([[np.dot(tm,covariate[i]*covariate[j]) for j in range(4)] for i in range(4)])
 
 true_value=lin.inv(I).dot(V_hat).dot(lin.inv(I))
 
-
-def Corr_Poisson(mean_true,sample_size,cor_par):
-    '''
-    Algorithm(for a sequence data):
-        -given true mean 1 、true mean 2、correlated_mean、ratio k
-        -generated u1,u2,u3~iid U(0,1)
-        -X1=ppf(u1,tm1-correlated_mean)、X2=ppf(u2,tm2-k*correlated_mean)、X12=ppf(u3,correlated_mean)、X12_=ppf(u3,k*correlated_mean)
-        -Y1=X1+X12、Y2=X2+X12_
-    mean_true:mean of Yi
-    sample_size:seq_size(number of x1+x2)
-    cor_par:correlated mean    
-    '''    
-    dict_parmas={'K':[mean_true[1]/mean_true[0],mean_true[3]/mean_true[2]],
-                 'Lam12':[cor_par[0],cor_par[1]],
-                 'Lam1':[mean_true[0]-cor_par[0],mean_true[2]-cor_par[1]],
-                 'Lam2':[mean_true[1]-cor_par[0]*mean_true[1]/mean_true[0],mean_true[3]-cor_par[1]*mean_true[3]/mean_true[2]],
-                 'Lam12_':[cor_par[0]*mean_true[1]/mean_true[0],cor_par[1]*mean_true[3]/mean_true[2]]}
-    df=pd.DataFrame()
-    for i in range(0,int(len(tm)/2)):
-        u1,u2,u3=np.random.uniform(0,1,size=sample_size),np.random.uniform(0,1,size=sample_size),np.random.uniform(0,1,size=sample_size)
-        Y1,Y2,Y12,Y12_=scipy.stats.poisson.ppf(u1, dict_parmas['Lam1'][i]),poisson.ppf(u2, dict_parmas['Lam2'][i]),poisson.ppf(u3,dict_parmas['Lam12'][i]),poisson.ppf(u3, dict_parmas['Lam12_'][i])
-        X1,X2=pd.Series(Y1+Y12),pd.Series(Y2+Y12_)
-        df=pd.concat([df, X1,X2], axis=1)
-    
-    df.columns = ['Yi11', 'Yi21', 'Yi12', 'Yi22']
-    return df
 
 
 def L(data,params):

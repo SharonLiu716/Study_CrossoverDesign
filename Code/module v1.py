@@ -44,15 +44,17 @@ class CrossoverDesign():
         self.sample_size=sample_size
         self.eta0=eta0
         #由以下函數生成的變數
-        self.mean_true =  self.Mean_Poisson(self.cros_type,self.params_value)
-        self.data,self.pi,self.Cov,self.Var= self.Data_Generate(self.cros_type,self.mean_true,self.sample_size,self.data_type,self.cor_par,self.eta0)
+        self.pi=self.PI(self.cros_type,self.sample_size)
+        self.mean,self.I =  self.Mean_and_I(self.cros_type,self.params_value,self.pi)
+        self.data,self.Cov,self.Var= self.Data_Generate(self.cros_type,self.mean_true,self.sample_size,self.data_type,self.cor_par,self.eta0)
         self.estimate = self.MLE(self.cros_type, self.data)
-        self.I=self.MatrixI(self.cros_type, self.pi, self.mean_true)
-        self.I_hat=self.MatrixI(self.cros_type, self.pi, self.Mean_Poisson(self.cros_type, self.estimate.to_numpy()[0]))
+        self.mean_hat,self.I_hat =  self.Mean_and_I(self.cros_type,self.estimate.to_numpy()[0],self.pi)
         self.V_hat=self.MatrixV(self.cros_type,self.pi, self.Cov, self.Var)
     
-    
-    
+    def PI(self,cros_type,sample_size):
+        num_seq= 3 if len(cros_type)==9 else 2
+        return sample_size/(sample_size*num_seq)
+        
     #資料生成
     def Data_Generate(self,cros_type,mean_true,sample_size,data_type,cor_par,eta0):
         #mean_true=true_mean
@@ -84,28 +86,22 @@ class CrossoverDesign():
         #rename data column, mu_column,pi,covariance        
         if len(cros_type)==4:
             data.columns=['Yi11', 'Yi12','Yi21', 'Yi22']
-            #Mu_cor.columns=['Mu11', 'Mu12','Mu21', 'Mu22']
-            Pi=sample_size/(sample_size*2)
             Cov=[ data.Yi11.cov(data.Yi12), data.Yi21.cov(data.Yi22)]
             Var=data.var(ddof=1)
         elif len(cros_type)==6:
             data.columns=['Yi11', 'Yi12','Yi13','Yi21','Yi22', 'Yi23']
-            #col_mu=['Mu11', 'Mu12','Mu13','Mu21','Mu22', 'Mu23']
-            Pi=sample_size/(sample_size*2)
             Cov=[ data.Yi11.cov(data.Yi12), data.Yi11.cov(data.Yi13),data.Yi12.cov(data.Yi13), 
                   data.Yi21.cov(data.Yi22), data.Yi21.cov(data.Yi23),data.Yi22.cov(data.Yi23)]
             Var=data.var(ddof=1)
         elif len(cros_type)==9:
             data.columns=['Yi11', 'Yi12','Yi13','Yi21','Yi22', 'Yi23','Yi31','Yi32', 'Yi33']
-            #col_mu=['Mu11', 'Mu12','Mu13','Mu21','Mu22', 'Mu23','Mu31','Mu32', 'Mu33']
-            Pi=sample_size/(sample_size*3)
             Cov=[ data.Yi11.cov(data.Yi12), data.Yi11.cov(data.Yi13),data.Yi12.cov(data.Yi13), 
                   data.Yi21.cov(data.Yi22), data.Yi21.cov(data.Yi23),data.Yi22.cov(data.Yi23),
                   data.Yi31.cov(data.Yi32), data.Yi31.cov(data.Yi33),data.Yi32.cov(data.Yi33)]
             Var=data.var(ddof=1)
-        return data,Pi,Cov,Var
+        return data,Cov,Var
     
-    def Mean_Poisson(self,cros_type,params_value):
+    def Mean_and_I(self,cros_type,params_value,Pi):
         '''
         用途:計算平均值
         1.cors_type:交叉設計
@@ -113,36 +109,42 @@ class CrossoverDesign():
         
         '''
         #找出交叉設計中B藥與C藥的組別與時間點
-        loc_B=np.array([[i,1] for i, w in enumerate(cros_type) if 'B' in w])
-        loc_C=np.array([[i,2] for i, w in enumerate(cros_type) if 'C' in w])
-        #只有B藥
+        loc_B=np.argwhere(np.array(list(cros_type)) =='B')
+        loc_C=np.argwhere(np.array(list(cros_type)) =='C')
+        #只有B藥        
         if len(loc_C) == 0:
             #2X2 e.g. ABBA
             if len(cros_type)==4:
                 tao,eta,gamma,delta=params_value
-                params = np.array([ [tao], [eta],  [gamma], [delta]])
-                covariate=np.array([[1,0,0,0],[1,0,1,0],[1,0,0,1],[1,0,1,1]])
-                covariate[tuple(loc_B.T)] = 1
+                params = np.array([tao,eta,gamma,delta])
+                covariate=np.array([[1,1,1,1],[0,1,1,0],[0,1,0,1],[0,0,1,1]])
+                covariate[1,tuple(loc_B.T)] = 1
             #2X3 e.g. ABBBAA
             if len(cros_type)==6:
                 tao,eta,gamma1,gamma2,delta=params_value
-                params = np.array([ [tao], [eta], [gamma1], [gamma2], [delta]])
-                covariate=np.array([[1,0,0,0,0],[1,0,1,0,0],[1,0,0,1,0],[1,0,0,0,1],[1,0,1,0,1],[1,0,0,1,1]])
-                covariate[tuple(loc_B.T)] = 1
+                params = np.array([tao,eta,gamma1,gamma2,delta])
+                covariate=np.array([[1,1,1,1,1,1],[0,0,0,0,0,0],[0,1,0,0,1,0],[0,0,1,0,0,1],[0,0,0,1,1,1]])   
+                covariate[1,tuple(loc_B.T)] = 1
             #3X3 e.g.AABABABAA
             if len(cros_type)==9:
                 tao,eta,gamma1,gamma2,delta1,delta2=params_value
-                params = np.array([ [tao], [eta], [gamma1], [gamma2], [delta1], [delta2]])
-                covariate=np.array([[1,0,0,0,0,0],[1,0,1,0,0,0],[1,0,0,1,0,0],[1,0,0,0,1,0],[1,0,1,0,1,0],[1,0,0,1,1,0],[1,0,0,0,0,1],[1,0,1,0,0,1],[1,0,0,1,0,1]])
-                covariate[tuple(loc_B.T)] = 1
+                params = np.array([ tao,eta,gamma1,gamma2,delta1,delta2])
+                covariate=np.array([[1,1,1]*3,[0,0,0]*3,[0,1,0]*3,[0,0,1]*3,[0,0,0,1,1,1,0,0,0],[0,0,0,0,0,0,1,1,1]])
+                covariate[1,tuple(loc_B.T)] = 1
         #3X3 有B藥與C藥    
         elif (len(loc_C) != 0) and (len(cros_type)==9):
             tao,eta1,eta2,gamma1,gamma2,delta1,delta2=params_value
-            params = np.array([ [tao], [eta1], [eta2], [gamma1], [gamma2], [delta1], [delta2]])
-            covariate=np.array([[1,0,0,0,0,0,0],[1,0,0,1,0,0,0],[1,0,0,0,1,0,0],[1,0,0,0,0,1,0],[1,0,0,1,0,1,0],[1,0,0,0,1,1,0],[1,0,0,0,0,0,1],[1,0,0,1,0,0,1],[1,0,0,0,1,0,1]])
-            covariate[tuple(loc_B.T)] = 1
-            covariate[tuple(loc_C.T)] = 1
-        return np.exp(np.array([ xijk  for xijk in covariate]).dot(params)).reshape(1,len(cros_type)).tolist()[0]
+            params = np.array([tao,eta1,eta2,gamma1,gamma2,delta1,delta2])
+            covariate=np.array([[1,1,1]*3,[0,0,0]*3,[0,0,0]*3,[0,1,0]*3,[0,0,1]*3,[0,0,0,1,1,1,0,0,0],[0,0,0,0,0,0,1,1,1]])
+            covariate[1,tuple(loc_B.T)] = 1
+            covariate[2,tuple(loc_C.T)] = 1
+        mean_=np.exp(np.dot(params,covariate))
+        matrixI=pi*np.array([[np.dot(mean_,covariate[i]*covariate[j]) for j in range(len(params))] for i in range(len(params))])
+        
+        return mean_,matrixI
+      
+
+    
       
     def MLE(self,cros_type,data):
         '''
@@ -255,85 +257,6 @@ class CrossoverDesign():
                                     'delta1_hat': MLE_opt[5],
                                     'delta2_hat': MLE_opt[6]},index=[0])
         return estimate
-        
-
-    def MatrixI(self,cros_type,Pi,tm):
-        
-        '''
-        用途：計算矩陣I(Poisson模型推導結果)
-        變數解釋：
-        1.cros_type:序列設計方式 e.g.'ABBA'
-        2.Pi:每個序列的人數/總人數
-        3.tm:若放入的是真值則為I，若放入的是估計值則為I_hat
-        '''
-        #3X3 pi=(seq_size)/(seq_size*3)
-        #3X2、2X2 pi=(seq_size)/(seq_size*2)
-        if cros_type=='ABBA':
-            #ABBA
-            #true mean
-            I = Pi*np.array([[sum(tm),tm[1]+tm[2],tm[1]+tm[3],tm[2]+tm[3]],
-                             [tm[1]+tm[2],tm[1]+tm[2],tm[1],tm[2]],
-                             [tm[1]+tm[3],tm[1],tm[1]+tm[3],tm[3]],
-                             [tm[2]+tm[3],tm[2],tm[3],tm[2]+tm[3]]                 
-                             ])
-        elif cros_type=='ABBBAA':
-            #ABBBAA
-            #true mean
-            I = Pi*np.array([[sum(tm),tm[1]+tm[2]+tm[3],tm[1]+tm[4],tm[2]+tm[5],sum(tm[3:6])],
-                         [tm[1]+tm[2]+tm[3],tm[1]+tm[2]+tm[3],tm[1],tm[2],tm[3]],
-                         [tm[1]+tm[4],tm[1],tm[1]+tm[4],0,tm[4]],
-                         [tm[2]+tm[5],tm[2],0,tm[2]+tm[5],tm[5]],
-                         [sum(tm[3:6]),tm[3],tm[4],tm[5],sum(tm[3:6])]                    
-                        ])
-
-        elif cros_type=='AABABABAA':
-            #AABABABAA
-            #true mean
-            I = Pi*np.array([  [sum(tm), tm[2]+tm[4]+tm[6], tm[1]+tm[4]+tm[7], tm[2]+tm[5]+tm[8], sum(tm[3:6]), sum(tm[6:9])],
-                             [tm[2]+tm[4]+tm[6], tm[2]+tm[4]+tm[6], tm[4], tm[2], tm[4], tm[6]],
-                             [tm[1]+tm[4]+tm[7],tm[4],tm[1]+tm[4]+tm[7],0, tm[4],tm[7]],
-                             [tm[2]+tm[5]+tm[8],tm[2],0,tm[2]+tm[5]+tm[8], tm[5], tm[8]],
-                             [sum(tm[3:6]),tm[4],tm[4],tm[5],sum(tm[3:6]),0],
-                             [sum(tm[6:9]),tm[6],tm[7],tm[8],0,sum(tm[6:9])]
-                             ])
-            
-        elif cros_type=='ABCBCACAB':
-            #ABCBCACAB
-            #true mean
-            I = Pi*np.array([[sum(tm),tm[1]+tm[3]+tm[8],tm[2]+tm[4]+tm[6],tm[1]+tm[4]+tm[7],tm[2]+tm[5]+tm[8],sum(tm[3:6]),sum(tm[6:9])],
-                         [tm[1]+tm[3]+tm[8],tm[1]+tm[3]+tm[8],0, tm[1],tm[8],tm[3],tm[8]],
-                         [tm[2]+tm[4]+tm[6],0 ,tm[2]+tm[4]+tm[6],tm[4], tm[2],tm[4],tm[6]],
-                         [tm[1]+tm[4]+tm[7],tm[1],tm[4],tm[1]+tm[4]+tm[7],0, tm[4],tm[7]],
-                         [tm[2]+tm[5]+tm[8],tm[8], tm[2],0,tm[2]+tm[5]+tm[8],tm[5],tm[5]],
-                         [sum(tm[3:6]),tm[3],tm[4], tm[4],tm[5],sum(tm[3:6]),0],
-                         [sum(tm[6:9]),tm[8],tm[6],tm[7],tm[5],0,sum(tm[6:9])]
-                         ])
-            
-        elif cros_type=='BACACBBCA':
-            #BACACBBCA
-            #true mean
-            I = Pi*np.array([[sum(tm),tm[0]+tm[5]+tm[6],tm[2]+tm[4]+tm[7],tm[1]+tm[4]+tm[7],tm[2]+tm[5]+tm[8],sum(tm[3:6]),sum(tm[6:9])],
-                             [tm[0]+tm[5]+tm[6],tm[0]+tm[5]+tm[6] ,0 ,0 ,tm[5] ,tm[5] , tm[6]],
-                             [tm[2]+tm[4]+tm[7],0 ,tm[2]+tm[4]+tm[7] ,tm[4]+tm[7] ,tm[2] , tm[4] , tm[7] ],
-                             [tm[1]+tm[4]+tm[7],0 ,tm[4]+tm[7] ,tm[1]+tm[4]+tm[7] ,0 , tm[4] , tm[7]],
-                             [tm[2]+tm[5]+tm[8], tm[5], tm[2] ,0 , tm[2]+tm[5]+tm[8], tm[5],tm[8] ],
-                             [sum(tm[3:6]), tm[5],tm[4] ,tm[4] ,tm[5] , sum(tm[3:6]),0],
-                             [sum(tm[6:9]), tm[6] , tm[7],tm[7] ,tm[8] ,0 ,sum(tm[6:9])]
-                             ])
-           
-            
-        elif cros_type=='BBAACBCAC':
-            #BBAACBCAC
-            #true mean
-            I = Pi*np.array([[sum(tm),tm[0]+tm[1]+tm[5],tm[4]+tm[6]+tm[8],tm[1]+tm[4]+tm[7],tm[2]+tm[5]+tm[8],sum(tm[3:6]),sum(tm[6:9])],
-                             [tm[0]+tm[1]+tm[5],tm[0]+tm[1]+tm[5],0,tm[1],tm[5],tm[5],0],
-                             [tm[4]+tm[6]+tm[8],0,tm[4]+tm[6]+tm[8],tm[4],tm[8],tm[5],0],
-                             [tm[1]+tm[4]+tm[7],tm[1],tm[4],tm[1]+tm[4]+tm[7],0,tm[4],tm[7]],
-                             [tm[2]+tm[5]+tm[8],tm[5],tm[8],0,tm[2]+tm[5]+tm[8],tm[5],tm[8]],
-                             [sum(tm[3:6]),tm[5],tm[5],tm[4],tm[5],sum(tm[3:6]),0],
-                             [sum(tm[6:9]),0,0,tm[7],tm[8],0,sum(tm[6:9])]
-                             ])
-        return I
 
 
     def MatrixV(self,cros_type,Pi,Cov,Var):
