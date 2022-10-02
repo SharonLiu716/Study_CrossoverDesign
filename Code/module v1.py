@@ -44,16 +44,15 @@ class CrossoverDesign():
         self.sample_size=sample_size
         self.eta0=eta0
         #由以下函數生成的變數
-        self.pi=self.PI(self.cros_type,self.sample_size)
-        self.mean,self.I =  self.Mean_and_I(self.cros_type,self.params_value,self.pi)
-        self.data,self.Cov,self.Var= self.Data_Generate(self.cros_type,self.mean_true,self.sample_size,self.data_type,self.cor_par,self.eta0)
+        #self.pi=self.PI(self.cros_type,self.sample_size)
+        self.params,self.covariate=self.Link(self.cros_type,self.params_value)
+        self.mean_true=self.Mean(self.params,self.covariate)
+        self.data= self.Data_Generate(self.cros_type,self.mean_true,self.sample_size,self.data_type,self.cor_par,self.eta0)
         self.estimate = self.MLE(self.cros_type, self.data)
-        self.mean_hat,self.I_hat =  self.Mean_and_I(self.cros_type,self.estimate.to_numpy()[0],self.pi)
-        self.V_hat=self.MatrixV(self.cros_type,self.pi, self.Cov, self.Var)
-    
-    def PI(self,cros_type,sample_size):
-        num_seq= 3 if len(cros_type)==9 else 2
-        return sample_size/(sample_size*num_seq)
+        self.mean_estimate=self.Mean(self.estimate.to_numpy()[0],self.covariate)
+        self.I=self.MatrixI(self.cros_type, self.params, self.covariate, self.mean_true, self.sample_size)
+        self.V_hat=self.MatrixV(self.cros_type, self.params, self.covariate, self.mean_estimate, self.data, self.sample_size)
+        self.I_hat=self.MatrixI(self.cros_type, self.estimate.to_numpy()[0], self.covariate, self.mean_estimate, self.sample_size)
         
     #資料生成
     def Data_Generate(self,cros_type,mean_true,sample_size,data_type,cor_par,eta0):
@@ -86,28 +85,29 @@ class CrossoverDesign():
         #rename data column, mu_column,pi,covariance        
         if len(cros_type)==4:
             data.columns=['Yi11', 'Yi12','Yi21', 'Yi22']
-            Cov=[ data.Yi11.cov(data.Yi12), data.Yi21.cov(data.Yi22)]
-            Var=data.var(ddof=1)
+            #Cov=[ data.Yi11.cov(data.Yi12), data.Yi21.cov(data.Yi22)]
+            #Var=data.var(ddof=1)
         elif len(cros_type)==6:
             data.columns=['Yi11', 'Yi12','Yi13','Yi21','Yi22', 'Yi23']
-            Cov=[ data.Yi11.cov(data.Yi12), data.Yi11.cov(data.Yi13),data.Yi12.cov(data.Yi13), 
-                  data.Yi21.cov(data.Yi22), data.Yi21.cov(data.Yi23),data.Yi22.cov(data.Yi23)]
-            Var=data.var(ddof=1)
+            #Cov=[ data.Yi11.cov(data.Yi12), data.Yi11.cov(data.Yi13),data.Yi12.cov(data.Yi13), 
+            #      data.Yi21.cov(data.Yi22), data.Yi21.cov(data.Yi23),data.Yi22.cov(data.Yi23)]
+            #Var=data.var(ddof=1)
         elif len(cros_type)==9:
             data.columns=['Yi11', 'Yi12','Yi13','Yi21','Yi22', 'Yi23','Yi31','Yi32', 'Yi33']
-            Cov=[ data.Yi11.cov(data.Yi12), data.Yi11.cov(data.Yi13),data.Yi12.cov(data.Yi13), 
-                  data.Yi21.cov(data.Yi22), data.Yi21.cov(data.Yi23),data.Yi22.cov(data.Yi23),
-                  data.Yi31.cov(data.Yi32), data.Yi31.cov(data.Yi33),data.Yi32.cov(data.Yi33)]
-            Var=data.var(ddof=1)
-        return data,Cov,Var
+            #Cov=[ data.Yi11.cov(data.Yi12), data.Yi11.cov(data.Yi13),data.Yi12.cov(data.Yi13), 
+            #      data.Yi21.cov(data.Yi22), data.Yi21.cov(data.Yi23),data.Yi22.cov(data.Yi23),
+            #      data.Yi31.cov(data.Yi32), data.Yi31.cov(data.Yi33),data.Yi32.cov(data.Yi33)]
+            #Var=data.var(ddof=1)
+        return data#,Cov,Var
     
-    def Mean_and_I(self,cros_type,params_value,Pi):
+    def Link(self,cros_type,params_value):
         '''
         用途:計算平均值
         1.cors_type:交叉設計
         2.params_value:若帶入的是真值則為真實平均值，若為MLE則為估計量
         
         '''
+        
         #找出交叉設計中B藥與C藥的組別與時間點
         loc_B=np.argwhere(np.array(list(cros_type)) =='B')
         loc_C=np.argwhere(np.array(list(cros_type)) =='C')
@@ -138,13 +138,24 @@ class CrossoverDesign():
             covariate=np.array([[1,1,1]*3,[0,0,0]*3,[0,0,0]*3,[0,1,0]*3,[0,0,1]*3,[0,0,0,1,1,1,0,0,0],[0,0,0,0,0,0,1,1,1]])
             covariate[1,tuple(loc_B.T)] = 1
             covariate[2,tuple(loc_C.T)] = 1
-        mean_=np.exp(np.dot(params,covariate))
-        matrixI=pi*np.array([[np.dot(mean_,covariate[i]*covariate[j]) for j in range(len(params))] for i in range(len(params))])
         
-        return mean_,matrixI
-      
-
+        return params,covariate
     
+    def Mean(self,params,covariate):
+        return np.exp(np.dot(params,covariate))
+    
+    def MatrixI(self,cros_type,params,covariate,mean_,sample_size):
+        num_seq= 3 if len(cros_type)==9 else 2
+        pi=sample_size/(sample_size*num_seq)        
+        matrixI=pi*np.array([[np.dot(mean_,covariate[i]*covariate[j]) for j in range(len(params))] for i in range(len(params))])
+        return matrixI
+    
+    def MatrixV(self,cros_type,params,covariate,mean_,data,sample_size):
+        num_seq= 3 if len(cros_type)==9 else 2
+        score=[np.dot((data-mean_).to_numpy(),covariate[i].transpose()) for i in range(len(params))]
+        matrixV=np.array([[sum(score[i]*score[j]) for j in range(len(params))] for i in range(len(params))])/(sample_size*num_seq)
+        return matrixV
+          
       
     def MLE(self,cros_type,data):
         '''
@@ -258,81 +269,11 @@ class CrossoverDesign():
                                     'delta2_hat': MLE_opt[6]},index=[0])
         return estimate
 
-
-    def MatrixV(self,cros_type,Pi,Cov,Var):
-        '''
-        用途：計算矩陣V(Poisson模型推導結果)
-        變數解釋：
-        1.cros_type:序列設計方式 e.g.'ABBA'
-        2.Pi:每個序列的人數/總人數
-        3.Cov:生成出的資料的Covariance
-        4.Var:生成出的資料的Variance
-        3&4需整理為整理格式如下
-        Var=data.var(ddof=1)
-        Cov=[ data.Yi11.cov(data.Yi21), data.Yi11.cov(data.Yi31),data.Yi21.cov(data.Yi31), 
-              data.Yi12.cov(data.Yi22), data.Yi12.cov(data.Yi32),data.Yi22.cov(data.Yi32),
-              data.Yi13.cov(data.Yi23), data.Yi13.cov(data.Yi33),data.Yi23.cov(data.Yi33)]
-        '''
-        #3X3 pi=(seq_size)/(seq_size*3)
-        #3X2、2X2 pi=(seq_size)/(seq_size*2)
-        if cros_type=='ABBA':
-            V = Pi*np.array([
-                        [sum(Var)+2*sum(Cov), Var[1]+Var[2]+sum(Cov), Var[1]+Var[3]+sum(Cov), sum(Var[2:4])+2*Cov[1]],
-                        [Var[1]+Var[2]+sum(Cov),Var[1]+Var[2],Var[1]+Cov[1],Var[2]+Cov[1]],
-                        [Var[1]+Var[3]+sum(Cov),Var[1]+Cov[1],Var[1]+Var[3],Var[3]+Cov[1]],
-                        [sum(Var[2:4])+2*Cov[1],Var[2]+Cov[1],Var[3]+Cov[1],sum(Var[2:4])+2*Cov[1]]
-                             ])
-        elif cros_type=='ABBBAA':       
-            V = Pi*np.array([[sum(Var)+2*sum(Cov),Var[1]+Var[2]+Var[3]+sum(Cov)+Cov[2]-Cov[5],Var[1]+Var[4]+sum(Cov)-Cov[1]-Cov[4],Var[2]+Var[5]+sum(Cov)-Cov[0]-Cov[3],sum(Var[3:6])+2*sum(Cov[3:6])],
-                         [Var[1]+Var[2]+Var[3]+sum(Cov)+Cov[2]-Cov[5],Var[1]+Var[2]+Var[3]+2*Cov[2],Var[1]+Cov[2]+Cov[3],Var[2]+Cov[2]+Cov[4],Var[3]+Cov[3]+Cov[4]],
-                         [Var[1]+Var[4]+sum(Cov)-Cov[1]-Cov[4],Var[1]+Cov[2]+Cov[3],Var[1]+Var[4],Cov[2]+Cov[5],Var[4]+Cov[3]+Cov[5]],
-                         [Var[2]+Var[5]+sum(Cov)-Cov[0]-Cov[3],Var[2]+Cov[2]+Cov[4],Cov[2]+Cov[5],Var[2]+Var[5],Var[5]+Cov[4]+Cov[5]],
-                         [sum(Var[3:6])+2*sum(Cov[3:6]),Var[3]+Cov[3]+Cov[4],Var[4]+Cov[3]+Cov[5],Var[5]+Cov[4]+Cov[5],sum(Var[3:6])+2*sum(Cov[3:6])]
-                        ])
-        elif cros_type=='AABABABAA':
-            V = Pi*np.array([[sum(Var)+2*sum(Cov),Var[2]+Var[4]+Var[6]+sum(Cov)-Cov[0]-Cov[4]-Cov[8],Var[1]+Var[4]+Var[7]+sum(Cov)-Cov[1]-Cov[4]-Cov[7],Var[2]+Var[5]+Var[8]+sum(Cov)-Cov[0]-Cov[3]-Cov[6],sum(Var[3:6])+2*sum(Cov[3:6]),sum(Var[6:9])+2*sum(Cov[6:9])],
-                         [Var[2]+Var[4]+Var[6]+sum(Cov)-Cov[0]-Cov[4]-Cov[8],Var[2]+Var[4]+Var[6],Var[4]+Cov[2]+Cov[6],Var[2]+Cov[5]+Cov[7],Var[4]+Cov[3]+Cov[5],Var[6]+Cov[6]+Cov[7]],
-                         [Var[1]+Var[4]+Var[7]+sum(Cov)-Cov[1]-Cov[4]-Cov[7],Var[4]+Cov[2]+Cov[6],Var[1]+Var[4]+Var[7],Cov[2]+Cov[5]+Cov[8],Var[4]+Cov[3]+Cov[5],Var[7]+Cov[6]+Cov[8]],
-                         [Var[2]+Var[5]+Var[8]+sum(Cov)-Cov[0]-Cov[3]-Cov[6],Var[2]+Cov[5]+Cov[7],Cov[2]+Cov[5]+Cov[8],Var[2]+Var[5]+Var[8],Var[5]+Cov[4]+Cov[5],Var[8]+Cov[7]+Cov[8]],
-                         [sum(Var[3:6])+2*sum(Cov[3:6]),Var[4]+Cov[3]+Cov[5],Var[4]+Cov[3]+Cov[5],Var[5]+Cov[4]+Cov[5],sum(Var[3:6])+2*sum(Cov[3:6]),0],
-                         [sum(Var[6:9])+2*sum(Cov[6:9]),Var[6]+Cov[6]+Cov[7],Var[7]+Cov[6]+Cov[8],Var[8]+Cov[7]+Cov[8],0,sum(Var[6:9])+2*sum(Cov[6:9])]
-                        
-                        ])
-            
-        elif cros_type=='ABCBCACAB':
-            V = Pi*np.array([[sum(Var)+2*sum(Cov),Var[1]+Var[3]+Var[8]+sum(Cov)-Cov[1]-Cov[5]-Cov[6],Var[2]+Var[4]+Var[6]+sum(Cov)-Cov[0]-Cov[4]-Cov[8],Var[1]+Var[4]+Var[7]+sum(Cov)-Cov[1]+Cov[2]-Cov[4]-Cov[7],Var[2]+Var[5]+Var[8]+sum(Cov)-Cov[0]-Cov[3]-Cov[6],sum(Var[3:6])+2*sum(Cov[3:6]),sum(Var[6:9])+2*sum(Cov[6:9])],
-                         [Var[1]+Var[3]+Var[8]+sum(Cov)-Cov[1]-Cov[5]-Cov[6],Var[1]+Var[3]+Var[8],Cov[2]+Cov[3]+Cov[7],Var[2]+Cov[3]+Cov[8],Var[8]+Cov[2]+Cov[4],Var[3]+Cov[3]+Cov[4],Var[8]+Cov[7]+Cov[8]],
-                         [Var[2]+Var[4]+Var[6]+sum(Cov)-Cov[0]-Cov[4]-Cov[8],Cov[2]+Cov[3]+Cov[7],Var[2]+Var[4]+Var[6],Var[4]+Cov[2]+Cov[6],Var[2]+Cov[5]+Cov[7],Var[4]+Cov[3]+Cov[5],Var[6]+Cov[6]+Cov[7]],
-                         [Var[1]+Var[4]+Var[7]+sum(Cov)-Cov[1]+Cov[2]-Cov[4]-Cov[7],Var[2]+Cov[3]+Cov[8],Var[4]+Cov[2]+Cov[6],Var[2]+Var[4]+Var[7],Cov[2]+Cov[5]+Cov[8],Var[4]+Cov[3]+Cov[5],Var[7]+Cov[6]+Cov[8]],
-                         [Var[2]+Var[5]+Var[8]+sum(Cov)-Cov[0]-Cov[3]-Cov[6],Var[8]+Cov[2]+Cov[4],Var[2]+Cov[5]+Cov[7],Cov[2]+Cov[5]+Cov[8],Var[2]+Var[5]+Var[8],Var[5]+Cov[4]+Cov[5],Var[8]+Cov[7]+Cov[8]],
-                         [sum(Var[3:6])+2*sum(Cov[3:6]),Var[3]+Cov[3]+Cov[4],Var[4]+Cov[3]+Cov[5],Var[4]+Cov[3]+Cov[5],Var[5]+Cov[4]+Cov[5],sum(Var[3:6])+2*sum(Cov[3:6]),0],
-                         [sum(Var[6:9])+2*sum(Cov[6:9]),Var[8]+Cov[7]+Cov[8],Var[6]+Cov[6]+Cov[7],Var[7]+Cov[6]+Cov[8],Var[8]+Cov[7]+Cov[8],0,sum(Var[6:9])+2*sum(Cov[6:9])]
-                        ])
-        elif cros_type=='BACACBBCA':        
-            V = Pi*np.array([[sum(Var)+2*sum(Cov),Var[0]+Var[5]+Var[6]+sum(Cov)-Cov[2]-Cov[3]-Cov[8],Var[2]+Var[4]+Var[7]+sum(Cov)-Cov[0]-Cov[4]-Cov[7],Var[1]+Var[4]+Var[7]+sum(Cov)-Cov[1]-Cov[4]-Cov[7],Var[2]+Var[5]+Var[8]+sum(Cov)-Cov[0]-Cov[3]-Cov[6],sum(Var[3:6])+2*sum(Cov[3:6]),sum(Var[6:9])+2*sum(Cov[6:9])],
-                             [Var[0]+Var[5]+Var[6]+sum(Cov)-Cov[2]-Cov[3]-Cov[8],Var[0]+Var[5]+Var[6] ,Cov[1]+Cov[5]+Cov[6] ,Cov[0]+Cov[5]+Cov[6] ,Var[5]+Cov[1]+Cov[7] ,Var[5]+Cov[4]+Cov[5] , Var[6]+Cov[6]+Cov[7]],
-                             [Var[2]+Var[4]+Var[7]+sum(Cov)-Cov[0]-Cov[4]-Cov[7],Cov[1]+Cov[5]+Cov[6] ,Var[2]+Var[4]+Var[7] ,Var[4]+Var[7]+Cov[2] ,Var[2]+Cov[5]+Cov[8] ,Var[0]+Var[5]+Var[6]+sum(Cov)-Cov[2]-Cov[3]-Cov[8] , Var[7]+Cov[6]+Cov[8]],
-                             [Var[1]+Var[4]+Var[7]+sum(Cov)-Cov[1]-Cov[4]-Cov[7],Cov[0]+Cov[5]+Cov[6] ,Var[4]+Var[7]+Cov[2] ,Var[1]+Var[4]+Var[7] ,Cov[2]+Cov[5]+Cov[8] , Var[4]+Cov[3]+Cov[5] , Var[7]+Cov[6]+Cov[8]],
-                             [Var[2]+Var[5]+Var[8]+sum(Cov)-Cov[0]-Cov[3]-Cov[6], Var[5]+Cov[1]+Cov[7],Var[2]+Cov[5]+Cov[8] ,Cov[2]+Cov[5]+Cov[8] ,Var[5]+Cov[4]+Cov[5], Var[8]+Cov[7]+Cov[8] ],
-                             [sum(Var[3:6])+2*sum(Cov[3:6]), Var[5]+Cov[4]+Cov[5],Var[0]+Var[5]+Var[6]+sum(Cov)-Cov[2]-Cov[3]-Cov[8] ,Var[4]+Cov[3]+Cov[5] ,Var[5]+Cov[4]+Cov[5] , sum(Var[3:6])+2*sum(Cov[3:6]),0],
-                             [sum(Var[6:9])+2*sum(Cov[6:9]), Var[6]+Cov[6]+Cov[7] , Var[7]+Cov[6]+Cov[8],Var[7]+Cov[6]+Cov[8] ,Var[8]+Cov[7]+Cov[8] ,0 ,sum(Var[6:9])+2*sum(Cov[6:9])]
-                             ])
-            
-        elif cros_type=='BBAACBCAC':
-            V = Pi*np.array([[sum(Var)+2*sum(Cov),Var[0]+Var[1]+Var[5]+sum(Cov[0:7])+Cov[0]-Cov[3]+Cov[5],Var[4]+Var[6]+Var[8]+sum(Cov[3:9])-Cov[4]+Cov[7],Var[1]+Var[4]+Var[7]+sum(Cov)-Cov[1]-Cov[4]-Cov[7],Var[2]+Var[5]+Var[8]+sum(Cov)-Cov[0]-Cov[3]+Cov[6],sum(Var[3:6])+2*sum(Cov[3:6]),sum(Var[6:9])+2*sum(Cov[6:9])],
-                             [Var[0]+Var[1]+Var[5]+sum(Cov[0:7])+Cov[0]-Cov[3]+Cov[5],Var[0]+Var[1]+2*Cov[0]+Cov[5],Cov[5],Var[1]+Cov[0]+Cov[5],Cov[1]+Cov[2]+Var[5],Var[5]+Cov[4]+Cov[5],0],
-                             [Var[4]+Var[6]+Var[8]+sum(Cov[3:9])-Cov[4]+Cov[7],Cov[5],Var[4]+Var[6]+Var[8]+2*Cov[7],Var[4]+Cov[6]+Cov[8],Var[8]+Cov[5]+Cov[7],Var[4]+Cov[3]+Cov[5],Var[6]+Var[8]+sum(Cov[6:9])+Cov[7]],
-                             [Var[1]+Var[4]+Var[7]+sum(Cov)-Cov[1]-Cov[4]-Cov[7],Var[1]+Cov[0]+Cov[5],Var[4]+Cov[6]+Cov[8],Var[1]+Var[4]+Var[7],Cov[2]-Cov[5]+Cov[8],Var[4]+Cov[3]+Cov[5],Var[7]+Cov[6]+Cov[8]],
-                             [Var[2]+Var[5]+Var[8]+sum(Cov)-Cov[0]-Cov[3]+Cov[6],Cov[1]+Cov[2]+Var[5],Var[8]+Cov[5]+Cov[7],Cov[2]-Cov[5]+Cov[8],Var[2]+Var[5]+Var[8],Var[5]+Cov[7]-Cov[8],Var[8]+Cov[7]+Cov[8]],
-                             [sum(Var[3:6])+2*sum(Cov[3:6]),Var[5]+Cov[4]+Cov[5],Var[4]+Cov[3]+Cov[5],Var[7]+Cov[6]+Cov[8],Var[5]+Cov[7]-Cov[8],sum(Var[3:6])+2*sum(Cov[3:6]),0],
-                             [sum(Var[6:9])+2*sum(Cov[6:9]),0,Var[6]+Var[8]+sum(Cov[6:9])+Cov[7],Var[7]+Cov[6]+Cov[8],Var[8]+Cov[7]+Cov[8],0,sum(Var[6:9])+2*sum(Cov[6:9])],
-                             ])
-        return V
         
  
 
 sim_time=2000
-design_type=['ABBA','ABBBAA','AABABABAA','ABCBCACAB','BACACBBCA','BBAACBCAC']   
+design_type=['ABBA']#,'ABBBAA','AABABABAA','ABCBCACAB','BACACBBCA','BBAACBCAC']   
 pv_by_design=[[1.0,0.5,0.2,0.1],[1.0,0.67,0.23,0.26,0.12],[1.0,0.67,0.23,0.26,0.12,0.13],[1.0,0.73,0.67,0.23,0.26,0.12,0.13],[1.0,0.73,0.67,0.23,0.26,0.12,0.13],[1.0,0.73,0.67,0.23,0.26,0.12,0.13]]#根據不同交叉設計產生的參數須給定真值
 seq_size=[25,50,100,150,200]
 #next:simulation and export to excel
