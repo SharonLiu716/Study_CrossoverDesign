@@ -51,7 +51,7 @@ class CrossoverDesign():
         self.estimate = self.MLE(self.cros_type, self.data)
         self.mean_estimate=self.Mean(self.estimate.to_numpy()[0],self.covariate)
         self.I=self.MatrixI(self.cros_type, self.params, self.covariate, self.mean_true, self.sample_size)
-        self.V_hat=self.MatrixV(self.cros_type, self.params, self.covariate, self.mean_estimate, self.data, self.sample_size)
+        self.V_hat=self.MatrixV(self.cros_type, self.estimate.to_numpy()[0], self.covariate, self.mean_estimate, self.data, self.sample_size)
         self.I_hat=self.MatrixI(self.cros_type, self.estimate.to_numpy()[0], self.covariate, self.mean_estimate, self.sample_size)
         
     #資料生成
@@ -273,7 +273,7 @@ class CrossoverDesign():
  
 
 sim_time=2000
-design_type=['ABBA']#,'ABBBAA','AABABABAA','ABCBCACAB','BACACBBCA','BBAACBCAC']   
+design_type=['ABBA','ABBBAA','AABABABAA','ABCBCACAB','BACACBBCA','BBAACBCAC']   
 pv_by_design=[[1.0,0.5,0.2,0.1],[1.0,0.67,0.23,0.26,0.12],[1.0,0.67,0.23,0.26,0.12,0.13],[1.0,0.73,0.67,0.23,0.26,0.12,0.13],[1.0,0.73,0.67,0.23,0.26,0.12,0.13],[1.0,0.73,0.67,0.23,0.26,0.12,0.13]]#根據不同交叉設計產生的參數須給定真值
 seq_size=[25,50,100,150,200]
 #next:simulation and export to excel
@@ -303,7 +303,8 @@ def Simulation(runtime,design_type,pv,seqsize):
     V_ind=V_ind/sim_time
     I_cor=I_cor/sim_time
     V_cor=V_cor/sim_time
-    return mle_ind.mean(),lin.inv(I_ind).dot(V_ind).dot(lin.inv(I_ind)),mle_ind.cov(ddof=1),mle_cor.mean(),lin.inv(I_cor).dot(V_cor).dot(lin.inv(I_cor)),mle_cor.cov(ddof=1)
+    return mle_ind.mean(),I_ind,V_ind,mle_ind.cov(ddof=1),mle_cor.mean(),I_cor,V_cor,mle_cor.cov(ddof=1)
+#mle_ind.mean(),lin.inv(I_ind).dot(V_ind).dot(lin.inv(I_ind)),mle_ind.cov(ddof=1),mle_cor.mean(),lin.inv(I_cor).dot(V_cor).dot(lin.inv(I_cor)),mle_cor.cov(ddof=1)
 
 np.random.seed(980716)
 output_path="C:/Github/Study_CrossoverDesign/SimOutput"
@@ -314,7 +315,25 @@ for (ix,design) in enumerate(design_type):
     num_seq= 2 if len(design)!=9 else 3
     
     for seq in seq_size:        
-        MLE_ind,mb_ind,cov_ind,MLE_cor,mb_cor,cov_cor=Simulation(runtime=2000, design_type=design, pv=pv_by_design[ix], seqsize=seq)
+        MLE_ind,I_ind_,V_ind_,cov_ind,MLE_cor,I_cor_,V_cor_,cov_cor=Simulation(runtime=sim_time, design_type=design, pv=pv_by_design[ix], seqsize=seq)
+        sys.stdout.write('\rReading : '+design+str(seq))
+        np.set_printoptions(suppress=True,precision=5)
+        MLE_ind.to_excel(writer, sheet_name="MLE_ind"+str(seq), engine='openpyxl', encoding='utf_8_sig')        
+        pd.DataFrame(I_ind_).to_excel(writer, sheet_name="I_ind"+str(seq), engine='openpyxl', encoding='utf_8_sig')
+        pd.DataFrame(V_ind_).to_excel(writer, sheet_name="V_ind"+str(seq), engine='openpyxl', encoding='utf_8_sig')
+        pd.DataFrame(lin.inv(I_ind_).dot(V_ind_).dot(lin.inv(I_ind_))).to_excel(writer, sheet_name="invI_V_inv_ind"+str(seq), engine='openpyxl', encoding='utf_8_sig')
+        pd.DataFrame((num_seq*seq*cov_ind)).to_excel(writer, sheet_name="NS_ind"+str(seq), engine='openpyxl', encoding='utf_8_sig')
+        MLE_cor.to_excel(writer, sheet_name="MLE_cor"+str(seq), engine='openpyxl', encoding='utf_8_sig')        
+        pd.DataFrame(I_cor_).to_excel(writer, sheet_name="I_cor"+str(seq), engine='openpyxl', encoding='utf_8_sig')
+        pd.DataFrame(V_cor_).to_excel(writer, sheet_name="V_cor"+str(seq), engine='openpyxl', encoding='utf_8_sig')
+        pd.DataFrame(lin.inv(I_cor_).dot(V_cor_).dot(lin.inv(I_cor_))).to_excel(writer, sheet_name="invI_V_inv_cor"+str(seq), engine='openpyxl', encoding='utf_8_sig')
+        pd.DataFrame((num_seq*seq*cov_cor)).to_excel(writer, sheet_name="NS_cor"+str(seq), engine='openpyxl', encoding='utf_8_sig')
+        writer.save()
+    
+    writer.close()
+lin.inv(I_ind_).dot(V_ind_).dot(lin.inv(I_ind_))   
+lin.inv(I_cor_).dot(V_cor_).dot(lin.inv(I_cor_))  
+        '''MLE_ind,mb_ind,cov_ind,MLE_cor,mb_cor,cov_cor=Simulation(runtime=2000, design_type=design, pv=pv_by_design[ix], seqsize=seq)
         sys.stdout.write('\rReading : '+design+str(seq))
         np.set_printoptions(suppress=True,precision=5)
         MLE_ind.to_excel(writer, sheet_name="MLE"+str(seq), engine='openpyxl', encoding='utf_8_sig')        
@@ -326,7 +345,7 @@ for (ix,design) in enumerate(design_type):
         pd.DataFrame(cov_cor).to_excel(writer, sheet_name="S"+str(seq), engine='openpyxl', encoding='utf_8_sig')
         pd.DataFrame((num_seq*seq*cov_cor)).to_excel(writer, sheet_name="NS"+str(seq), engine='openpyxl', encoding='utf_8_sig')
         writer.save()
-    writer.close()
+    writer.close()'''
 
 import openpyxl
 output_path="C:\\Github\\Study_CrossoverDesig\\SimOutput"
