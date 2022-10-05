@@ -1,5 +1,12 @@
 # -*- coding: utf-8 -*-
 """
+Created on Tue Oct  4 17:43:59 2022
+
+@author: cherl
+"""
+
+# -*- coding: utf-8 -*-
+"""
 Created on Fri Sep 23 14:49:36 2022
 
 @author: cherl
@@ -29,6 +36,7 @@ import math
 import openpyxl
 import numpy as np
 import pandas as pd
+import datetime
 import scipy.stats
 from scipy.optimize import minimize 
 import numpy.linalg as lin
@@ -273,12 +281,13 @@ class CrossoverDesign():
  
 
 sim_time=2000
-design_type=['ABBA','ABBBAA','AABABABAA','ABCBCACAB','BACACBBCA','BBAACBCAC']   
-pv_by_design=[[1.0,0.5,0.2,0.1],[1.0,0.67,0.23,0.26,0.12],[1.0,0.67,0.23,0.26,0.12,0.13],[1.0,0.73,0.67,0.23,0.26,0.12,0.13],[1.0,0.73,0.67,0.23,0.26,0.12,0.13],[1.0,0.73,0.67,0.23,0.26,0.12,0.13]]#根據不同交叉設計產生的參數須給定真值
+design_type=['ABBA']#,'ABBBAA','AABABABAA','ABCBCACAB','BACACBBCA','BBAACBCAC']   
+pv_by_design=[[1.0,0.67,0.23,0.12],[1.0,0.67,0.23,0.26,0.12],[1.0,0.67,0.23,0.26,0.12,0.13],[1.0,0.73,0.67,0.23,0.26,0.12,0.13],[1.0,0.73,0.67,0.23,0.26,0.12,0.13],[1.0,0.73,0.67,0.23,0.26,0.12,0.13]]#根據不同交叉設計產生的參數須給定真值
 seq_size=[25,50,100,150,200]
 #next:simulation and export to excel
 
 def Simulation(runtime,design_type,pv,seqsize):
+    np.set_printoptions(suppress=True,precision=4)
     mle_ind,mle_cor=pd.DataFrame(),pd.DataFrame()
     I_ind, V_ind,I_cor, V_cor = 0, 0, 0, 0
     for i in range(runtime):    
@@ -308,10 +317,12 @@ def Simulation(runtime,design_type,pv,seqsize):
 
 np.random.seed(980716)
 output_path="C:/Github/Study_CrossoverDesign/SimOutput"
+today=str(datetime.date.today().month)+'0'+str(datetime.date.today().day)
+
 for (ix,design) in enumerate(design_type):
     #writer = openpyxl.Workbook()
     
-    writer=pd.ExcelWriter(output_path+'/{}.xlsx'.format(design), engine="openpyxl")
+    writer=pd.ExcelWriter(output_path+'/{}_{}.xlsx'.format(design,today), engine="openpyxl")
     num_seq= 2 if len(design)!=9 else 3
     
     for seq in seq_size:        
@@ -321,18 +332,21 @@ for (ix,design) in enumerate(design_type):
         MLE_ind.to_excel(writer, sheet_name="MLE_ind"+str(seq), engine='openpyxl', encoding='utf_8_sig')        
         pd.DataFrame(I_ind_).to_excel(writer, sheet_name="I_ind"+str(seq), engine='openpyxl', encoding='utf_8_sig')
         pd.DataFrame(V_ind_).to_excel(writer, sheet_name="V_ind"+str(seq), engine='openpyxl', encoding='utf_8_sig')
+        pd.DataFrame(lin.inv(I_ind_)).to_excel(writer, sheet_name="inv(I)_ind"+str(seq), engine='openpyxl', encoding='utf_8_sig')
         pd.DataFrame(lin.inv(I_ind_).dot(V_ind_).dot(lin.inv(I_ind_))).to_excel(writer, sheet_name="invI_V_inv_ind"+str(seq), engine='openpyxl', encoding='utf_8_sig')
         pd.DataFrame((num_seq*seq*cov_ind)).to_excel(writer, sheet_name="NS_ind"+str(seq), engine='openpyxl', encoding='utf_8_sig')
         MLE_cor.to_excel(writer, sheet_name="MLE_cor"+str(seq), engine='openpyxl', encoding='utf_8_sig')        
         pd.DataFrame(I_cor_).to_excel(writer, sheet_name="I_cor"+str(seq), engine='openpyxl', encoding='utf_8_sig')
         pd.DataFrame(V_cor_).to_excel(writer, sheet_name="V_cor"+str(seq), engine='openpyxl', encoding='utf_8_sig')
+        pd.DataFrame(lin.inv(I_cor_)).to_excel(writer, sheet_name="inv(I)_cor"+str(seq), engine='openpyxl', encoding='utf_8_sig')
         pd.DataFrame(lin.inv(I_cor_).dot(V_cor_).dot(lin.inv(I_cor_))).to_excel(writer, sheet_name="invI_V_inv_cor"+str(seq), engine='openpyxl', encoding='utf_8_sig')
         pd.DataFrame((num_seq*seq*cov_cor)).to_excel(writer, sheet_name="NS_cor"+str(seq), engine='openpyxl', encoding='utf_8_sig')
         writer.save()
     
     writer.close()
-lin.inv(I_ind_).dot(V_ind_).dot(lin.inv(I_ind_))   
-lin.inv(I_cor_).dot(V_cor_).dot(lin.inv(I_cor_))  
+    
+
+ 
         '''MLE_ind,mb_ind,cov_ind,MLE_cor,mb_cor,cov_cor=Simulation(runtime=2000, design_type=design, pv=pv_by_design[ix], seqsize=seq)
         sys.stdout.write('\rReading : '+design+str(seq))
         np.set_printoptions(suppress=True,precision=5)
@@ -347,27 +361,3 @@ lin.inv(I_cor_).dot(V_cor_).dot(lin.inv(I_cor_))
         writer.save()
     writer.close()'''
 
-import openpyxl
-output_path="C:\\Github\\Study_CrossoverDesig\\SimOutput"
-writer=pd.ExcelWriter(output_path+'\\{}.xlsx'.format(design), engine="openpyxl")
-num_seq= 2 if len(design)!=9 else 3
-sys.stdout.write('\rReading : '+design+seq)
-
-    MLE_ind.to_excel(writer, sheet_name="MLE"+seq, engine='openpyxl', encoding='utf_8_sig')
-    mb_ind.to_excel(writer, sheet_name="invI*V*inv"+seq, engine='openpyxl', encoding='utf_8_sig')
-    cov_ind.to_excel(writer, sheet_name="S"+seq, engine='openpyxl', encoding='utf_8_sig')
-    (num_seq*seq*cov_ind).to_excel(writer, sheet_name="N*S"+seq, engine='openpyxl', encoding='utf_8_sig')
-    df.to_excel(output_path+'\\{}.xlsx'.format(data_path[1][k]), engine='openpyxl', encoding='utf_8_sig')
-writer.save()
-writer.close()
-
-    # append 到part number list
-path = "C:\\Github\\Study_CrossoverDesig\SimOutput"
-book = load_workbook(path)
-writer = pd.ExcelWriter(path, engine = 'openpyxl')
-
-writer.book = book
-df_product.to_excel(writer, sheet_name = 'product_list', encoding='utf_8_sig', index=False)
-part_product_mat.to_excel(writer, sheet_name = 'part_product_matrix', encoding='utf_8_sig', index=True)
-writer.save()
-writer.close()

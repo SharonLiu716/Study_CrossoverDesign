@@ -26,14 +26,13 @@ gamma_param=0.1#beta
 seq_size=100
 pi=(seq_size)/(seq_size*2)
 I=pi*np.array([[np.dot(tm,covariate[i]*covariate[j]) for j in range(4)] for i in range(4)])
-data=pd.DataFrame(np.array([np.random.poisson(lam=p, size=seq_size) for p in tm]).T.tolist(),columns = ['Yi11', 'Yi12','Yi21', 'Yi22'])
+data=pd.DataFrame(np.array([poisson.rvs(p, size=seq_size) for p in tm]).T.tolist(),columns = ['Yi11', 'Yi12','Yi21', 'Yi22'])
 score=[np.dot((data-tm).to_numpy(),covariate[i].transpose()) for i in range(len(covariate))]
 V=np.array([[sum(score[i]*score[j]) for j in range(len(covariate))] for i in range(4)])/200
 
 true_value=lin.inv(I).dot(V_hat).dot(lin.inv(I))
 
-
-
+data.corr()
 def L(data,params):
     alpha, eta, gamma,delta,=params
     f1,f2=0,0
