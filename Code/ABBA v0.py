@@ -4,6 +4,12 @@ Created on Wed Oct  5 09:58:46 2022
 
 @author: cherl
 """
+import sys
+sys.executable
+sys.path
+sys.prefix
+
+
 
 import scipy
 import math
@@ -11,12 +17,14 @@ from math import factorial
 import numpy as np
 import pandas as pd
 import scipy.stats
-from scipy.optimize import minimize 
+from scipy.optimize import minimize, rosen, rosen_der
 from scipy.stats import poisson
 import numpy.linalg as lin
 from scipy.optimize import fsolve
 from sympy import *
-
+from torch.autograd import Variable, grad
+import autograd.numpy as ag
+from autograd import grad, jacobian, hessian
 sim_time,seq_size,cor_param,cros_type=1000,100,0.1,'ABBA'
 tao,eta,gamma,delta=1.0, 0.67, 0.23, 0.12
 params = np.array([tao,eta,gamma,delta])
@@ -25,8 +33,10 @@ mean_true=np.exp(np.dot(params.transpose(),covariate))
 pi=(seq_size)/(seq_size*2)
 I=pi*np.array([[np.dot(mean_true,covariate[i]*covariate[j]) for j in range(len(cros_type))] for i in range(len(cros_type))])
 df=pd.DataFrame(np.array([poisson.rvs(p, size=seq_size) for p in mean_true]).T.tolist(),columns = ['Yi11', 'Yi12','Yi21', 'Yi22'])
-
-
+df=pd.DataFrame(np.random.poisson(lam=mean_true, size=(seq_size, len(cros_type))),columns = ['Yi11', 'Yi12','Yi21', 'Yi22'])
+df.mean()
+df.corr()
+mean_true
 #MLE
 def logL(params,data):
     tao_, eta_, gamma_,delta_=params
@@ -35,10 +45,26 @@ def logL(params,data):
     return -logL
 
 def logL_mle(data):
-    res = minimize(fun=lambda par, data: logL(par, data),x0=np.array([0.93, 0.60, 0.16, 0.05]), args=(data,), method='BFGS')
-    tao_mle, eta_mle, gamma_mle, delta_mle = res.x
-    return tao_mle, eta_mle, gamma_mle, delta_mle
-logL_mle(df)
+    res = minimize(fun=lambda par, data: logL(par, data),x0=np.array([0.95, 0.62, 0.18, 0.07]).astype(float), args=(data,),method='BFGS')
+    #tao_mle, eta_mle, gamma_mle, delta_mle = 
+    return res.x,res.hess_inv
+
+mle=[]
+sigma=0
+for i in range(sim_time):
+    df=pd.DataFrame(np.random.poisson(lam=mean_true, size=(seq_size, len(cros_type))),columns = ['Yi11', 'Yi12','Yi21', 'Yi22'])
+    mle_i,sigma_i=logL_mle(df)
+    mle.append(list(mle_i))
+    sigma+=sigma_i
+
+
+mle_df=pd.DataFrame (mle, columns = ['tao_hat', 'eta_hat','gamma_hat','delta_hat'])
+mle_df.mean()
+mle_df.cov()*(seq_size*2)
+sigma
+lin.inv(I)
+lin.inv(sigma)
+I
 
 '''
 用來驗證logL有沒有算錯 但optim的值不正確!
