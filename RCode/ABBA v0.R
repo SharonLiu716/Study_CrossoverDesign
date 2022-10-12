@@ -1,13 +1,45 @@
-set.seed(716)
+set.seed(7353)
 setwd("C:/Github/Study_CrossoverDesign/RCode")
-sim_time,seq_size,cor_param,cros_type=1000,100,0.1,'ABBA'
-params = c(1.0, 0.67, 0.23, 0.12)#tao,eta,gamma,delta
-covariate=np.array([[1,1,1,1],[0,1,1,0],[0,1,0,1],[0,0,1,1]])
-mean_true=np.exp(np.dot(params.transpose(),covariate))
+sim_time=2000
+seq_size<-c(25,50,100,200)
+cor_param=0.1
+cros_type='ABBA'
+#tao,eta,gamma,delta
+params = matrix(c(1.0, 0.7, 0.3, 0.2), nrow=1,ncol=4)
+#link of mean.i11,mean.mean.i12,mean.i21,mean.22
+x.mat  <-  matrix(c(1,0,0,0,1,1,1,0,1,1,0,1,1,0,1,1), nrow = 4, ncol = 4)
+mean_true=exp(params%*%x.mat)
 pi=(seq_size)/(seq_size*2)
-I=pi*np.array([[np.dot(mean_true,covariate[i]*covariate[j]) for j in range(len(cros_type))] for i in range(len(cros_type))])
-df=pd.DataFrame(np.array([poisson.rvs(p, size=seq_size) for p in mean_true]).T.tolist(),columns = ['Yi11', 'Yi12','Yi21', 'Yi22'])
-df=pd.DataFrame(np.random.poisson(lam=mean_true, size=(seq_size, len(cros_type))),columns = ['Yi11', 'Yi12','Yi21', 'Yi22'])
-df.mean()
-df.corr()
-data<-data.frame(rpois(100, lambda = 3))
+I<- matrix(0, nrow = 4, ncol = 4)
+for (i in 1:nchar(cros_type) ){ I[i,]<-pi*mean_true%*%(t(x.mat)*x.mat[i,])}
+data <-  matrix(0, nrow = 100, ncol = 4)
+for (i in 1:length(mean_true)) {data[,i] =rpois(100, lambda = mean_true[1,i])}
+#check hessian==I?
+negll <- function(param) { sum(factorial(data))
+  -sum( param[1]*data[,1]-exp(param[1])+sum(param[1:3])*data[,2]-exp(sum(param[1:3]))+(param[1]+param[2]+param[4])*data[,3]-exp(param[1]+param[2]+param[4])+(param[1]+param[3]+param[4])*data[,4]-exp(param[1]+param[3]+param[4]) )}
+ABBA<-optim(param <- c(0.95, 0.65, 0.25, 0.15), negll, hessian=TRUE)
+I
+ABBA$hessian/200
+solve(ABBA$hessian)*200
+solve(I)
+
+mean_est<-exp
+#start to do simulation(write as class)
+#MLE
+y.sum=colSums(data)
+tao.hat=log(y.sum[1]/100)
+eta.hat=0.5*(log(y.sum[2])+log(y.sum[3])-log(y.sum[1])-log(y.sum[4]))
+gamma.hat=0.5*(log(y.sum[2])+log(y.sum[4])-log(y.sum[1])-log(y.sum[3]))
+delta.hat=0.5*(log(y.sum[3])+log(y.sum[4])-log(y.sum[1])-log(y.sum[2]))
+mle = matrix(c(tao.hat, eta.hat, gamma.hat, delta.hat), nrow=1,ncol=4)
+mean_est<-exp(mle%*%x.mat)
+I.hat<- matrix(0, nrow = 4, ncol = 4)
+for (i in 1:nchar(cros_type) ){ I.hat[i,]<-pi*mean_est%*%(t(x.mat)*x.mat[i,])}
+score<- matrix(0, nrow = 100, ncol = 4)
+for (i in 1:length(params) ){ score[,i]<-sweep(data, 2, mean_est[1,])%*%x.mat[i,]} 
+V.hat<- matrix(0, nrow = 4, ncol = 4)
+for (i in 1:length(params) ){ V.hat[i,]<-colSums(score*score[,i])/200}
+
+ABBA$hessian/200
+solve(I.hat)
+

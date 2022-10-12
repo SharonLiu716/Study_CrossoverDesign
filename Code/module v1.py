@@ -64,23 +64,11 @@ class CrossoverDesign():
         
     #資料生成
     def Data_Generate(self,cros_type,mean_true,sample_size,data_type,cor_par,eta0):
-        #mean_true=true_mean
-        #sample_size=100000
-        #cor_par=gamma_param
-        #sample_size=int(sample_size/2)
-        ''' 假設樣本之間為獨立生成的Poisson分配，求其MLE、I matrix、V matrix
-        Input：
-            -cros_type:交叉設計方式
-            -mean_true:用參數真值算出來的樣本平均數，用以生成獨立卜瓦松樣本y11、y21、y12、y22
-            -sample_size：yij的樣本數(總樣本數為sample_sizs*4)
-            -data_type:ind or cor
-            
-        Output：data
-        '''
+    
         #num_seq:序列數量決定我們要生成幾組nui
         num_seq= 3 if len(cros_type)==9 else 2   
         if data_type == 'ind': 
-            data=pd.DataFrame(np.array([np.random.poisson(lam=p, size=sample_size) for p in mean_true]).T.tolist())
+            data=pd.DataFrame(np.random.poisson(lam=mean_true, size=(sample_size, len(cros_type))))
         else:
             Mu_cor = pd.DataFrame(columns = [*range(0,len(cros_type))])
             for i in range(0,len(mean_true),num_seq):            
@@ -93,20 +81,14 @@ class CrossoverDesign():
         #rename data column, mu_column,pi,covariance        
         if len(cros_type)==4:
             data.columns=['Yi11', 'Yi12','Yi21', 'Yi22']
-            #Cov=[ data.Yi11.cov(data.Yi12), data.Yi21.cov(data.Yi22)]
-            #Var=data.var(ddof=1)
+            
         elif len(cros_type)==6:
             data.columns=['Yi11', 'Yi12','Yi13','Yi21','Yi22', 'Yi23']
-            #Cov=[ data.Yi11.cov(data.Yi12), data.Yi11.cov(data.Yi13),data.Yi12.cov(data.Yi13), 
-            #      data.Yi21.cov(data.Yi22), data.Yi21.cov(data.Yi23),data.Yi22.cov(data.Yi23)]
-            #Var=data.var(ddof=1)
+            
         elif len(cros_type)==9:
             data.columns=['Yi11', 'Yi12','Yi13','Yi21','Yi22', 'Yi23','Yi31','Yi32', 'Yi33']
-            #Cov=[ data.Yi11.cov(data.Yi12), data.Yi11.cov(data.Yi13),data.Yi12.cov(data.Yi13), 
-            #      data.Yi21.cov(data.Yi22), data.Yi21.cov(data.Yi23),data.Yi22.cov(data.Yi23),
-            #      data.Yi31.cov(data.Yi32), data.Yi31.cov(data.Yi33),data.Yi32.cov(data.Yi33)]
-            #Var=data.var(ddof=1)
-        return data#,Cov,Var
+            
+        return data
     
     def Link(self,cros_type,params_value):
         '''
@@ -177,13 +159,13 @@ class CrossoverDesign():
         '''
         #3X3 pi=(seq_size)/(seq_size*3)
         #3X2、2X2 pi=(seq_size)/(seq_size*2)
-        initial_guess = np.array(self.params_value)-0.07
+        initial_guess = np.array(self.params_value)-0.05
         
         if cros_type=='ABBA':
-            tao_hat=np.log(np.mean(data['Yi11']))
-            eta_hat=0.5*(np.log(np.mean(data['Yi21']))+np.log(np.mean(data['Yi12']))-np.log(np.mean(data['Yi11']))-np.log(np.mean(data['Yi22'])))
-            gamma_hat=0.5*(np.log(np.mean(data['Yi12']))+np.log(np.mean(data['Yi22']))-np.log(np.mean(data['Yi11']))-np.log(np.mean(data['Yi21'])))
-            delta_hat=0.5*(np.log(np.mean(data['Yi21']))+np.log(np.mean(data['Yi22']))-np.log(np.mean(data['Yi11']))-np.log(np.mean(data['Yi12'])))
+            tao_hat=np.log(data['Yi11'].mean())
+            eta_hat=0.5*(np.log(data['Yi12'].sum())+np.log(data['Yi21'].sum())-np.log(data['Yi11'].sum())-np.log(data['Yi22'].sum()))
+            gamma_hat=0.5*(np.log(data['Yi12'].sum())+np.log(data['Yi22'].sum())-np.log(data['Yi11'].sum())-np.log(data['Yi21'].sum()))
+            delta_hat=0.5*(np.log(data['Yi21'].sum())+np.log(data['Yi22'].sum())-np.log(data['Yi11'].sum())-np.log(data['Yi12'].sum()))
             
             # MLE
             estimate= pd.DataFrame({'tao_hat': tao_hat, 
@@ -192,11 +174,16 @@ class CrossoverDesign():
                                     'delta_hat': delta_hat},index=[0])
         elif cros_type=='ABBBAA':       
             tao_hat = np.log(np.mean(data['Yi11']))
+            eta_hat =0.25*(np.log(data['Yi12'].sum())+np.log(data['Yi13'].sum())+2*np.log(data['Yi21'].sum())-np.log(data['Yi22'].sum())-np.log(data['Yi23'].sum())-2*np.log(data['Yi11'].sum()))
+            gamma1_hat = 0.5*(np.log(data['Yi12'].sum())+np.log(data['Yi22'].sum())-np.log(data['Yi21'].sum())-np.log(data['Yi11'].sum()))
+            gamma2_hat = 0.5*(np.log(data['Yi13'].sum())+np.log(data['Yi23'].sum())-np.log(data['Yi21'].sum())-np.log(data['Yi11'].sum()))
+            delta_hat = 0.5*(np.log(data['Yi21'].sum())-np.log(data['Yi11'].sum()))-0.25*(np.log(data['Yi12'].sum())+np.log(data['Yi13'].sum())-np.log(data['Yi22'].sum())-np.log(data['Yi23'].sum()))
+            '''
             eta_hat =0.25*(np.log(np.mean(data['Yi12']))+np.log(np.mean(data['Yi13']))+2*np.log(np.mean(data['Yi21']))-np.log(np.mean(data['Yi22']))-np.log(np.mean(data['Yi23']))-2*np.log(np.mean(data['Yi11'])))
             gamma1_hat = 0.5*(np.log(np.mean(data['Yi12']))+np.log(np.mean(data['Yi22']))-np.log(np.mean(data['Yi21']))-np.log(np.mean(data['Yi11'])))
             gamma2_hat = 0.5*(np.log(np.mean(data['Yi13']))+np.log(np.mean(data['Yi23']))-np.log(np.mean(data['Yi21']))-np.log(np.mean(data['Yi11'])))
             delta_hat = 0.5*(np.log(np.mean(data['Yi21']))-np.log(np.mean(data['Yi11'])))-0.25*(np.log(np.mean(data['Yi12']))+np.log(np.mean(data['Yi13']))-np.log(np.mean(data['Yi22']))-np.log(np.mean(data['Yi23'])))
-            
+            '''
             # MLE
             estimate= pd.DataFrame({'tao': tao_hat, 
                                     'eta_hat': eta_hat, 
@@ -281,9 +268,9 @@ class CrossoverDesign():
  
 
 sim_time=2000
-design_type=['ABBA']#,'ABBBAA','AABABABAA','ABCBCACAB','BACACBBCA','BBAACBCAC']   
-pv_by_design=[[1.0,0.67,0.23,0.12],[1.0,0.67,0.23,0.26,0.12],[1.0,0.67,0.23,0.26,0.12,0.13],[1.0,0.73,0.67,0.23,0.26,0.12,0.13],[1.0,0.73,0.67,0.23,0.26,0.12,0.13],[1.0,0.73,0.67,0.23,0.26,0.12,0.13]]#根據不同交叉設計產生的參數須給定真值
-seq_size=[25,50,100,150,200]
+design_type=['ABBA','ABBBAA']#,'AABABABAA','ABCBCACAB','BACACBBCA','BBAACBCAC']   
+pv_by_design=np.array([[1.0,0.7,0.3,0.2],[1.0,0.7,0.3,0.3,0.2],[1.0,0.7,0.3,0.3,0.2,0.2],[1.0,0.7,0.7,0.3,0.3,0.2,0.2],[1.0,0.7,0.7,0.3,0.3,0.2,0.2],[1.0,0.7,0.7,0.3,0.3,0.2,0.2]])#根據不同交叉設計產生的參數須給定真值
+seq_size=np.array([25,50,100,200])
 #next:simulation and export to excel
 
 def Simulation(runtime,design_type,pv,seqsize):
@@ -312,6 +299,7 @@ def Simulation(runtime,design_type,pv,seqsize):
     V_ind=V_ind/sim_time
     I_cor=I_cor/sim_time
     V_cor=V_cor/sim_time
+    
     return mle_ind.mean(),I_ind,V_ind,mle_ind.cov(ddof=1),mle_cor.mean(),I_cor,V_cor,mle_cor.cov(ddof=1)
 #mle_ind.mean(),lin.inv(I_ind).dot(V_ind).dot(lin.inv(I_ind)),mle_ind.cov(ddof=1),mle_cor.mean(),lin.inv(I_cor).dot(V_cor).dot(lin.inv(I_cor)),mle_cor.cov(ddof=1)
 
@@ -326,19 +314,19 @@ for (ix,design) in enumerate(design_type):
     num_seq= 2 if len(design)!=9 else 3
     
     for seq in seq_size:        
-        MLE_ind,I_ind_,V_ind_,cov_ind,MLE_cor,I_cor_,V_cor_,cov_cor=Simulation(runtime=sim_time, design_type=design, pv=pv_by_design[ix], seqsize=seq)
+        MLE_ind,I_ind_,V_ind_,cov_ind,MLE_cor,I_cor_,V_cor_,cov_cor=Simulation( runtime=sim_time, design_type=design, pv = pv_by_design[ix], seqsize=seq)
         sys.stdout.write('\rReading : '+design+str(seq))
         np.set_printoptions(suppress=True,precision=5)
         MLE_ind.to_excel(writer, sheet_name="MLE_ind"+str(seq), engine='openpyxl', encoding='utf_8_sig')        
         pd.DataFrame(I_ind_).to_excel(writer, sheet_name="I_ind"+str(seq), engine='openpyxl', encoding='utf_8_sig')
         pd.DataFrame(V_ind_).to_excel(writer, sheet_name="V_ind"+str(seq), engine='openpyxl', encoding='utf_8_sig')
         pd.DataFrame(lin.inv(I_ind_)).to_excel(writer, sheet_name="inv(I)_ind"+str(seq), engine='openpyxl', encoding='utf_8_sig')
-        pd.DataFrame(lin.inv(I_ind_).dot(V_ind_).dot(lin.inv(I_ind_))).to_excel(writer, sheet_name="invI_V_inv_ind"+str(seq), engine='openpyxl', encoding='utf_8_sig')
+        #pd.DataFrame(lin.inv(I_ind_).dot(V_ind_).dot(lin.inv(I_ind_))).to_excel(writer, sheet_name="invI_V_inv_ind"+str(seq), engine='openpyxl', encoding='utf_8_sig')
         pd.DataFrame((num_seq*seq*cov_ind)).to_excel(writer, sheet_name="NS_ind"+str(seq), engine='openpyxl', encoding='utf_8_sig')
         MLE_cor.to_excel(writer, sheet_name="MLE_cor"+str(seq), engine='openpyxl', encoding='utf_8_sig')        
         pd.DataFrame(I_cor_).to_excel(writer, sheet_name="I_cor"+str(seq), engine='openpyxl', encoding='utf_8_sig')
-        pd.DataFrame(V_cor_).to_excel(writer, sheet_name="V_cor"+str(seq), engine='openpyxl', encoding='utf_8_sig')
-        pd.DataFrame(lin.inv(I_cor_)).to_excel(writer, sheet_name="inv(I)_cor"+str(seq), engine='openpyxl', encoding='utf_8_sig')
+        #pd.DataFrame(V_cor_).to_excel(writer, sheet_name="V_cor"+str(seq), engine='openpyxl', encoding='utf_8_sig')
+        #pd.DataFrame(lin.inv(I_cor_)).to_excel(writer, sheet_name="inv(I)_cor"+str(seq), engine='openpyxl', encoding='utf_8_sig')
         pd.DataFrame(lin.inv(I_cor_).dot(V_cor_).dot(lin.inv(I_cor_))).to_excel(writer, sheet_name="invI_V_inv_cor"+str(seq), engine='openpyxl', encoding='utf_8_sig')
         pd.DataFrame((num_seq*seq*cov_cor)).to_excel(writer, sheet_name="NS_cor"+str(seq), engine='openpyxl', encoding='utf_8_sig')
         writer.save()

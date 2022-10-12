@@ -17,7 +17,7 @@ import numpy.linalg as lin
 from scipy.optimize import fsolve
 from sympy import *
 sim_time=1000
-alpha,eta,gamma,delta=1.0, 0.5, 0.2, 0.1
+alpha,eta,gamma,delta=1.0, 0.7, 0.3, 0.2
 params = np.array([alpha,eta,gamma,delta])
 covariate=np.array([[1,1,1,1],[0,1,1,0],[0,1,0,1],[0,0,1,1]])
 tm=np.exp(np.dot(params.transpose(),covariate))
@@ -26,20 +26,24 @@ gamma_param=0.1#beta
 seq_size=100
 pi=(seq_size)/(seq_size*2)
 I=pi*np.array([[np.dot(tm,covariate[i]*covariate[j]) for j in range(4)] for i in range(4)])
-data=pd.DataFrame(np.array([poisson.rvs(p, size=seq_size) for p in tm]).T.tolist(),columns = ['Yi11', 'Yi12','Yi21', 'Yi22'])
+#data=pd.DataFrame(np.random.poisson(lam=tm, size=(seq_size, len('ABBA'))),columns = ['Yi11', 'Yi12','Yi21', 'Yi22'])
+
 score=[np.dot((data-tm).to_numpy(),covariate[i].transpose()) for i in range(len(covariate))]
 V=np.array([[sum(score[i]*score[j]) for j in range(len(covariate))] for i in range(4)])/200
 
 true_value=lin.inv(I).dot(V_hat).dot(lin.inv(I))
 
-data.corr()
-def L(data,params):
-    alpha, eta, gamma,delta,=params
-    f1,f2=0,0
-    for i in range(len(data)):
-        f1=f1+alpha*data.at[i,'Yi11']+(alpha+eta+gamma)*data.at[i,'Yi21']
-        f2=f2+(alpha+eta+delta)*data.at[i,'Yi12']+(alpha + gamma + delta)*data.at[i,'Yi22']    
-    return f1+f2
+def logL(params,data):
+    tao_, eta_, gamma_,delta_=params
+    factorize=pd.DataFrame(np.array([[math.factorial(data.at[i,col]) for i in range(len(data))] for col in data.columns]).T.tolist(),columns = ['Yi11', 'Yi12','Yi21', 'Yi22'])
+    logL=np.sum(tao_*data['Yi11']-np.exp(tao_)+(tao_+eta_+gamma_)*data['Yi12']-np.exp((tao_+eta_+gamma_))+(tao_+eta_+delta_)*data['Yi21']-np.exp((tao_+eta_+delta_))+(tao_+gamma_+delta_)*data['Yi22'] -np.exp((tao_+gamma_+delta_)))-np.log(factorize).sum().sum()       
+    return -logL
+
+def logL_mle(data):
+    res = minimize(fun=lambda par, data: logL(par, data),x0=np.array([0.95, 0.62, 0.18, 0.07]).astype(float), args=(data,),method='BFGS')
+    #tao_mle, eta_mle, gamma_mle, delta_mle = 
+    return res.x,res.hess_inv
+
 def matrix_AB(I_,V_):
     I_eta=I_[1, 1]
     I_etapsy=np.array([I_[1,0],I_[1, 2],I_[1, 3]])
@@ -71,7 +75,7 @@ def Estimate(mean_true,sample_size,data_type,cor_par,eta0):
         2.sample variance of MLE = diag(I**(-1))
     '''
     if data_type == 'ind': 
-        data=pd.DataFrame(np.array([np.random.poisson(lam=p, size=sample_size) for p in mean_true]).T.tolist(),columns = ['Yi11', 'Yi12','Yi21', 'Yi22'])
+        data=pd.DataFrame(np.random.poisson(lam=mean_true, size=(seq_size, len('ABBA'))),columns = ['Yi11', 'Yi12','Yi21', 'Yi22'])
     else:
         '''
         #np.random.seed(980716)
@@ -97,14 +101,17 @@ def Estimate(mean_true,sample_size,data_type,cor_par,eta0):
    
     '''MLE''' 
     #exp(alpha)
-    alpha_hat=np.log(np.mean(data['Yi11']))
+    #alpha_hat=np.log(np.mean(data['Yi11']))
+    alpha_hat=np.log(data['Yi11'].sum())
     #exp(Eta)
-    eta_hat=0.5*(np.log(np.mean(data['Yi12']))+np.log(np.mean(data['Yi21']))-np.log(np.mean(data['Yi11']))-np.log(np.mean(data['Yi22'])))
+    #eta_hat=0.5*(np.log(np.mean(data['Yi12']))+np.log(np.mean(data['Yi21']))-np.log(np.mean(data['Yi11']))-np.log(np.mean(data['Yi22'])))
+    eta_hat=0.5*(np.log(data['Yi12'].sum())+np.log(data['Yi21'].sum())-np.log(data['Yi11'].sum())-np.log(data['Yi22'].sum()))
     #exp(gamma)
-    gamma_hat=0.5*(np.log(np.mean(data['Yi12']))+np.log(np.mean(data['Yi22']))-np.log(np.mean(data['Yi11']))-np.log(np.mean(data['Yi21'])))
+    #gamma_hat=0.5*(np.log(np.mean(data['Yi12']))+np.log(np.mean(data['Yi22']))-np.log(np.mean(data['Yi11']))-np.log(np.mean(data['Yi21'])))
+    gamma_hat=0.5*(np.log(data['Yi12'].sum())+np.log(data['Yi22'].sum())-np.log(data['Yi11'].sum())-np.log(data['Yi21'].sum()))
     #exp(delta)
-    delta_hat=0.5*(np.log(np.mean(data['Yi21']))+np.log(np.mean(data['Yi22']))-np.log(np.mean(data['Yi11']))-np.log(np.mean(data['Yi12'])))
-    
+    #delta_hat=0.5*(np.log(np.mean(data['Yi21']))+np.log(np.mean(data['Yi22']))-np.log(np.mean(data['Yi11']))-np.log(np.mean(data['Yi12'])))
+    delta_hat=0.5*(np.log(data['Yi21'].sum())+np.log(data['Yi22'].sum())-np.log(data['Yi11'].sum())-np.log(data['Yi12'].sum()))
     # MLE
     estimate= pd.DataFrame({'alpha_hat': alpha_hat, 
                             'eta_hat': eta_hat, 
@@ -112,21 +119,24 @@ def Estimate(mean_true,sample_size,data_type,cor_par,eta0):
                             'delta_hat': delta_hat},index=[0])
     
     '''Mean'''
-    etimate_of_mean = pd.DataFrame({'Mean_11': np.exp(alpha_hat), 
-                       'Mean_21': np.exp(alpha_hat+eta_hat+gamma_hat), 
-                       'Mean_12': np.exp(alpha_hat+eta_hat+delta_hat), 
-                       'Mean_22': np.exp(alpha_hat+gamma_hat+delta_hat)},index=[0])
+    mle = np.array([alpha_hat,eta_hat,gamma_hat,delta_hat])
+    covariate=np.array([[1,1,1,1],[0,1,1,0],[0,1,0,1],[0,0,1,1]])
+    etimate_of_mean=np.exp(np.dot(mle.transpose(),covariate))
     
     '''Estimate matrix I''' 
-    sm=list(etimate_of_mean.loc[0,:])#data.mean()
+    #sm=list(etimate_of_mean.loc[0,:])#data.mean()
     pi=sample_size/(sample_size*2)
+    I_hat=pi*np.array([[np.dot(etimate_of_mean,covariate[i]*covariate[j]) for j in range(4)] for i in range(4)])
+    score=[np.dot((data-etimate_of_mean).to_numpy(),covariate[i].transpose()) for i in range(len(covariate))]
+    V_hat=np.array([[sum(score[i]*score[j]) for j in range(len(covariate))] for i in range(4)])/(sample_size*2)
+    '''
     I_hat=pi*np.array([[sum(sm), sm[1]+sm[2], sm[1]+sm[3], sum(sm[2:4])],
                    [sm[1]+sm[2],sum(sm[1:3]), sm[1], sm[2]],
                    [sm[1]+sm[3],sm[1], sm[1]+sm[3],sm[3]],
                    [sum(sm[2:4]),sm[2],sm[3],sum(sm[2:4])]
                    ])
    
-    '''Diagonal variance matrix'''
+    #Diagonal variance matrix
     Var=data.var(ddof=1)
     #Var=[var(data[res],sm[idx]) for (idx,res) in enumerate(data.columns)]
     Cov=[ data.Yi11.cov(data.Yi12), data.Yi21.cov(data.Yi22)]
@@ -145,9 +155,9 @@ def Estimate(mean_true,sample_size,data_type,cor_par,eta0):
     LR_naive=2*(L(data=data,params=[alpha_hat,eta_hat,gamma_hat,delta_hat])-L(data=data,params=[alpha_hat,eta_null,gamma_null,delta_null])) 
     LR_robust=2*(A_hat/B_hat)*(L(data=data,params=[alpha_hat,eta_hat,gamma_hat,delta_hat])-L(data=data,params=[alpha_hat,eta_null,gamma_null,delta_null]))
     Wald_naive=(sample_size*4)*(eta_hat-eta_null)*A_hat*(eta_hat-eta_null)
-    Wald_robust=(sample_size*4)*(eta_hat-eta_null)*(A_hat/B_hat)*(eta_hat-eta_null)
+    Wald_robust=(sample_size*4)*(eta_hat-eta_null)*(A_hat/B_hat)*(eta_hat-eta_null)'''
     
-    return estimate, I_hat, V_hat, LR_naive, LR_robust,Wald_naive,Wald_robust
+    return estimate, I_hat, V_hat#, LR_naive, LR_robust,Wald_naive,Wald_robust
 
 np.random.seed(980716)
 mle_ind,mle_cor=pd.DataFrame(),pd.DataFrame()
@@ -156,26 +166,26 @@ LR_ind_na,LR_ind_rb,LR_cor_na,LR_cor_rb=np.empty((0,1), float),np.empty((0,1), f
 Wald_ind_na,Wald_ind_rb,Wald_cor_na,Wald_cor_rb=np.empty((0,1), float),np.empty((0,1), float),np.empty((0,1), float),np.empty((0,1), float)
 for i in range(sim_time):    
     #independent
-    #mle_i, mu_i, I_i, V_i=Estimate(mean_true=tm, sample_size=seq_size,data_type='ind',cor_par=gamma_param)
-    mle_i, I_i, V_i, LR_na, LR_rb, Wald_na, Wald_rb=Estimate(mean_true=tm, sample_size=seq_size,data_type='ind',cor_par=gamma_param,eta0=0)
+    mle_i, I_i, V_i=Estimate(mean_true=tm, sample_size=seq_size,data_type='ind',cor_par=gamma_param,eta0=0)
+    #mle_i, I_i, V_i, LR_na, LR_rb, Wald_na, Wald_rb=Estimate(mean_true=tm, sample_size=seq_size,data_type='ind',cor_par=gamma_param,eta0=0)
     mle_ind = mle_ind.append(mle_i,ignore_index=True)
     #mu_ind = mu_ind.append(mu_i,ignore_index=True)
     I_ind+=I_i
     V_ind+=V_i
-    LR_ind_na=np.append(LR_ind_na, LR_na)
-    LR_ind_rb=np.append(LR_ind_rb, LR_rb)
-    Wald_ind_na=np.append(Wald_ind_na, Wald_na)
-    Wald_ind_rb=np.append(Wald_ind_rb, Wald_rb)
+    #LR_ind_na=np.append(LR_ind_na, LR_na)
+    #LR_ind_rb=np.append(LR_ind_rb, LR_rb)
+    #Wald_ind_na=np.append(Wald_ind_na, Wald_na)
+    #Wald_ind_rb=np.append(Wald_ind_rb, Wald_rb)
     #correlated
-    #mle_i, mu_i, I_i, V_i=Estimate(mean_true=tm, sample_size=seq_size,data_type='cor',cor_par=gamma_param,eta0=0)
-    mle_i, I_i, V_i, LR_na, LR_rb, Wald_na, Wald_rb=Estimate(mean_true=tm, sample_size=seq_size,data_type='cor',cor_par=gamma_param,eta0=0)
+    mle_i, I_i, V_i=Estimate(mean_true=tm, sample_size=seq_size,data_type='cor',cor_par=gamma_param,eta0=0)
+    #mle_i, I_i, V_i, LR_na, LR_rb, Wald_na, Wald_rb=Estimate(mean_true=tm, sample_size=seq_size,data_type='cor',cor_par=gamma_param,eta0=0)
     mle_cor = mle_cor.append(mle_i,ignore_index=True)
     I_cor+=I_i
     V_cor+=V_i
-    LR_cor_na=np.append(LR_cor_na, LR_na)
-    LR_cor_rb=np.append(LR_cor_rb, LR_rb)
-    Wald_cor_na=np.append(Wald_cor_na, Wald_na)
-    Wald_cor_rb=np.append(Wald_cor_rb, Wald_rb)
+    #LR_cor_na=np.append(LR_cor_na, LR_na)
+    #LR_cor_rb=np.append(LR_cor_rb, LR_rb)
+    #Wald_cor_na=np.append(Wald_cor_na, Wald_na)
+    #Wald_cor_rb=np.append(Wald_cor_rb, Wald_rb)
 
 I_ind=I_ind/sim_time
 V_ind=V_ind/sim_time
