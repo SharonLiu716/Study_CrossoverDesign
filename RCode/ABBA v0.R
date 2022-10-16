@@ -12,15 +12,16 @@ mean_true=exp(params%*%x.mat)
 pi=0.5#(seq_size)/(seq_size*2)
 I.true<- matrix(0, nrow = 4, ncol = 4)
 for (i in 1:length(params) ){ I.true[i,]<-0.5*mean_true%*%(t(x.mat)*x.mat[i,])}
+#the form of matrix that export to excel
+#output object
+obj<-c('MLE.optim','MLE.closeform','I.hat.hessian','I.hat','V.hat.matix','NS.MLE.optim','NS.MLE.closeform','inv(I.hat)')
+#name of output object
+space<-matrix(c('','',''), nrow=1,ncol = 3)
+obj.names<-matrix(0,ncol = 4,length(obj))
+for (i in 1:length(obj)){obj.names[i,]<-cbind(obj[i],space)}
 
-printmat <- function(name,mat) {
-  out <- capture.output(mat)
-  out[1] <- paste0(name, out[1])
-  cat(paste(out, collapse = "\n"))
-}
 
-
-
+result <- list()#to store result of each seq_size
 #use optim to obtain MLE、I_hat、V_hat
 for (seq in seq_size){
   MLE.optim<-matrix(0, nrow = sim_time, ncol = 4)
@@ -29,124 +30,60 @@ for (seq in seq_size){
   I.hat<- 0
   V.hat<- 0
   for (i in 1:sim_time){
-  pi=(seq)/(seq*2)
-  data <-  matrix(0, nrow = seq, ncol = 4)
-  for (j in 1:length(mean_true)) {data[,j] =rpois(seq, lambda = mean_true[1,j])}
-  negll <- function(param) { sum(factorial(data))
-    -sum( param[1]*data[,1]-exp(param[1])+sum(param[1:3])*data[,2]-exp(sum(param[1:3]))+(param[1]+param[2]+param[4])*data[,3]-exp(param[1]+param[2]+param[4])+(param[1]+param[3]+param[4])*data[,4]-exp(param[1]+param[3]+param[4]) )}
-  ABBA<-optim(param <- c(0.95, 0.65, 0.25, 0.15), negll, hessian=TRUE)
-  MLE.optim[i,]<-ABBA$par
-  I.optim <-I.optim+ABBA$hessian
+    pi=(seq)/(seq*2)
+    data <-  matrix(0, nrow = seq, ncol = 4)
+    for (j in 1:length(mean_true)) {data[,j] =rpois(seq, lambda = mean_true[1,j])}
+    negll <- function(param) { sum(factorial(data))
+      -sum( param[1]*data[,1]-exp(param[1])+sum(param[1:3])*data[,2]-exp(sum(param[1:3]))+(param[1]+param[2]+param[4])*data[,3]-exp(param[1]+param[2]+param[4])+(param[1]+param[3]+param[4])*data[,4]-exp(param[1]+param[3]+param[4]) )}
+    ABBA<-optim(param <- c(0.95, 0.65, 0.25, 0.15), negll, hessian=TRUE)
+    MLE.optim[i,]<-ABBA$par
+    I.optim <-I.optim+ABBA$hessian
   
-  y.sum=colSums(data)
-  tao.hat=log(y.sum[1]/seq)
-  eta.hat=0.5*(log(y.sum[2])+log(y.sum[3])-log(y.sum[1])-log(y.sum[4]))
-  gamma.hat=0.5*(log(y.sum[2])+log(y.sum[4])-log(y.sum[1])-log(y.sum[3]))
-  delta.hat=0.5*(log(y.sum[3])+log(y.sum[4])-log(y.sum[1])-log(y.sum[2]))
-  MLE.i = matrix(c(tao.hat, eta.hat, gamma.hat, delta.hat), nrow=1,ncol=4)
-  mean_est<-exp(MLE.i%*%x.mat)
-  I.hat.i<- matrix(0, nrow = 4, ncol = 4)
-  V.hat.i<- matrix(0, nrow = 4, ncol = 4)
-  score<- matrix(0, nrow = seq, ncol = 4)
-  for (k in 1:length(params) ){ 
-    I.hat.i[k,]<-pi*mean_est%*%(t(x.mat)*x.mat[k,])
-    score[,k]<-sweep(data, 2, mean_est[1,])%*%x.mat[k,]
-    V.hat.i[k,]<-colSums(score*score[,k])/(seq*2)
-  }
-  MLE.closeform[i,]<- MLE.i
-  I.hat<-I.hat+I.hat.i
-  V.hat<-V.hat+V.hat.i
-  
-}
-  
-  print(paste('seq_size',seq))
-  printmat('MLE optim',colMeans(MLE.optim))
-  print(' ')
-  printmat('MLE closeform',colMeans(MLE.closeform))
-  print(' ')
-  printmat('I_optim',I.optim/(sim_time*seq*2))
-  print(' ')
-  printmat('I_hat',I.hat/sim_time)
-  print(' ')
-  printmat('V_hat',V.hat/sim_time)
-  print(' ')
-  printmat('N*S_optim',cov(MLE.optim)*seq*2)
-  print(' ')
-  printmat('N*S_closeform',cov(MLE.closeform)*seq*2)
-  print(' ')
-  
-  printmat('inv(I_hat)',solve(I.hat/sim_time))
-  print(' ')
-  
-  }
-
-seq=50
-for (i in 1:sim_time){
-  data <-  matrix(0, nrow = seq, ncol = 4)
-  for (j in 1:length(mean_true)) {data[,j] =rpois(seq, lambda = mean_true[1,j])}
-  negll <- function(param) { sum(factorial(data))
-        -sum( param[1]*data[,1]-exp(param[1])+sum(param[1:3])*data[,2]-exp(sum(param[1:3]))+(param[1]+param[2]+param[4])*data[,3]-exp(param[1]+param[2]+param[4])+(param[1]+param[3]+param[4])*data[,4]-exp(param[1]+param[3]+param[4]) )}
-  ABBA<-optim(param <- c(0.95, 0.65, 0.25, 0.15), negll, hessian=TRUE)
-  MLE.optim[i,]<-ABBA$par
-  I.optim <-I.optim+ABBA$hessian
-  
-  y.sum=colSums(data)
-  tao.hat=log(y.sum[1]/seq)
-  eta.hat=0.5*(log(y.sum[2])+log(y.sum[3])-log(y.sum[1])-log(y.sum[4]))
-  gamma.hat=0.5*(log(y.sum[2])+log(y.sum[4])-log(y.sum[1])-log(y.sum[3]))
-  delta.hat=0.5*(log(y.sum[3])+log(y.sum[4])-log(y.sum[1])-log(y.sum[2]))
-  MLE.i = matrix(c(tao.hat, eta.hat, gamma.hat, delta.hat), nrow=1,ncol=4)
-  mean_est<-exp(MLE.i%*%x.mat)
-  I.hat.i<- matrix(0, nrow = 4, ncol = 4)
-  V.hat.i<- matrix(0, nrow = 4, ncol = 4)
-  score<- matrix(0, nrow = seq, ncol = 4)
-  for (k in 1:length(params) ){ 
+    y.sum=colSums(data)
+    tao.hat=log(y.sum[1]/seq)
+    eta.hat=0.5*(log(y.sum[2])+log(y.sum[3])-log(y.sum[1])-log(y.sum[4]))
+    gamma.hat=0.5*(log(y.sum[2])+log(y.sum[4])-log(y.sum[1])-log(y.sum[3]))
+    delta.hat=0.5*(log(y.sum[3])+log(y.sum[4])-log(y.sum[1])-log(y.sum[2]))
+    MLE.i = matrix(c(tao.hat, eta.hat, gamma.hat, delta.hat), nrow=1,ncol=4)
+    mean_est<-exp(MLE.i%*%x.mat)
+    I.hat.i<- matrix(0, nrow = 4, ncol = 4)
+    V.hat.i<- matrix(0, nrow = 4, ncol = 4)
+    score<- matrix(0, nrow = seq, ncol = 4)
+    for (k in 1:length(params) ){ 
+       I.hat.i[k,]<-pi*mean_est%*%(t(x.mat)*x.mat[k,])
+       score[,k]<-sweep(data, 2, mean_est[1,])%*%x.mat[k,]
+       V.hat.i[k,]<- colSums(score*score[,k])/(seq*2)
+    }
+    
+    V.hat.i<-Matrix::forceSymmetric(V.hat.i,uplo="L")
+    MLE.closeform[i,]<- MLE.i
+    I.hat<-I.hat+I.hat.i
+    V.hat<-V.hat+V.hat.i
     
     
-    I.hat.i[k,]<-mean_est%*%((t(x.mat)*x.mat[k,]))/2
-    score[,k]<-sweep(data, 2, mean_est[1,])%*%x.mat[k,]
-    V.hat.i[k,]<-colSums(score*score[,k])/(seq*2)
   }
   
-  MLE.closeform[i,]<- MLE.i
-  I.hat<-I.hat+I.hat.i
-  V.hat<-V.hat+V.hat.i
+  print(V.hat)
+  #remove outlier of MLE.closeform
+  #MLE.closeform<-apply(MLE.closeform, 2, sort)
+  #MLE.closeform <- MLE.closeform[11:(nrow(MLE.closeform) - 10),]
+  
+  #store result in MATS for seq
+  MATS <- list(signif(t(as.matrix(colMeans(MLE.optim))),5),signif(t(as.matrix(colMeans(MLE.closeform))),5),signif(I.optim/(sim_time*seq*2),5),signif(I.hat/sim_time,5),signif(V.hat/sim_time,5),signif(cov(MLE.optim)*seq*2,5),signif(cov(MLE.closeform)*seq*2,5),signif(solve(I.hat/sim_time),5))
+  #format result that we want to show in excel
+  seq.result<-matrix(c('tao_hat','eta_hat','gamma_hat','delta_hat'),ncol = 4,nrow = 1)
+  for (i in 1:length(obj)){
+    temp<-rbind(obj.names[i,],MATS[[i]])
+    seq.result<-rbind(seq.result,temp)}
+  #store result of all seq_size
+  num=seq_size[which(seq_size == seq)]
+  result <- append(result, list( num = seq.result))
+  
 }
 
+write.xlsx(result, file = paste0(Sys.Date(),'.xlsx'))
 
 
-colMeans(MLE.optim)
-colMeans(MLE.closeform)
-I.hat/sim_time
-V.hat/sim_time
-I.optim/(sim_time*seq*2)
-
-
-
-#check hessian==I?
-
-I
-ABBA$hessian/200
-solve(ABBA$hessian)*200
-solve(I)
-
-
-#start to do simulation(write as class)
-#use close form to simulate
-y.sum=colSums(data)
-tao.hat=log(y.sum[1]/100)
-eta.hat=0.5*(log(y.sum[2])+log(y.sum[3])-log(y.sum[1])-log(y.sum[4]))
-gamma.hat=0.5*(log(y.sum[2])+log(y.sum[4])-log(y.sum[1])-log(y.sum[3]))
-delta.hat=0.5*(log(y.sum[3])+log(y.sum[4])-log(y.sum[1])-log(y.sum[2]))
-mle = matrix(c(tao.hat, eta.hat, gamma.hat, delta.hat), nrow=1,ncol=4)
-mean_est<-exp(mle%*%x.mat)
-I.hat<- matrix(0, nrow = 4, ncol = 4)
-for (i in 1:nchar(cros_type) ){ I.hat[i,]<-pi*mean_est%*%(t(x.mat)*x.mat[i,])}
-score<- matrix(0, nrow = 100, ncol = 4)
-for (i in 1:length(params) ){ score[,i]<-sweep(data, 2, mean_est[1,])%*%x.mat[i,]} 
-V.hat<- matrix(0, nrow = 4, ncol = 4)
-for (i in 1:length(params) ){ V.hat[i,]<-colSums(score*score[,i])/200}
-
-ABBA$hessian/200
-solve(I.hat)
+summary(MLE.closeform)
+summary(MLE.optim)
 
