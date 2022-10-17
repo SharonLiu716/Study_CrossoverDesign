@@ -1,5 +1,7 @@
+
+setwd("C:/Github/Study_CrossoverDesign/RCode")
 #simulation parameter
-sim_time=2000
+sim_time=2000;cor_par=1/8
 seq_size=c(25,50,100,200)
 cros_type=c('ABBA','ABBBAA','AABABABAA','ABCBCACAB','BACACBBCA','BBAACBCAC')
 #true value of params with treat-seq-time 
@@ -16,8 +18,6 @@ xmat_333.2=matrix(c(1,1,0,0,0,0,0, 1,0,0,1,0,0,0, 1,0,1,0,1,0,0, 1,0,0,0,0,1,0, 
 #BBAACBCAC
 xmat_333.3=matrix(c(1,1,0,0,0,0,0, 1,1,0,1,0,0,0, 1,0,0,0,1,0,0, 1,0,0,0,0,1,0, 1,0,1,1,0,1,0, 1,1,0,0,1,1,0, 1,0,1,0,0,0,1, 1,0,0,1,0,0,1, 1,0,1,0,1,0,1), nrow = 7, ncol = 9)
 
-
-
 #Function of output object
 
 #Par.values==TrueMean
@@ -32,32 +32,30 @@ Matrix.I<-function(cors.type,params,x.mat){
 }
 
 #Generate data
-cros.type="ABBA"
-mean.true=Mean.True(param_222,xmat_222)
-seq.size=10
-num.seq=2
-cor.par=3
-Data_Generate<-function(cros.type,mean.true,seq.size,data.type,cor.par,eta0){
-  num.seq<-if (nchar(cros.type)==9) 3 else 2
-  data <-  matrix(0, nrow = seq.size, ncol = nchar(cros.type))
-  if (data.type == 'ind')
+Data.ind<-function(cros.type,mean.true,seq.size){
+    num.seq<-if (nchar(cros.type)==9) 3 else 2
+    data <-  matrix(0, nrow = seq.size, ncol = nchar(cros.type))
     for (j in 1:length(mean.true)) {data[,j] =rpois(seq.size, lambda = mean.true[1,j])}
-  else{
-    #生成一組nui乘上兩個mean待補mean[3:4]
-    nui<-rgamma(n=seq.size,shape=1/cor.par,scale=cor.par)
-    d<-split(c(outer(nui,mean.true[1:2],  function(x, y) x * y)), ceiling(seq_along(c(outer(nui,mean.true[1:2],  function(x, y) x * y)))/10))
-    data[,1]<-unlist(d[1],use.names = FALSE)
-    data[,2]<-unlist(d[2],use.names = FALSE)
+    return(data)
+  }
+
+Data.cor<-function(cros.type,mean.true,seq.size,cor.par){
+  num.seq<-if (nchar(cros.type)==9) 3 else 2
+  nui<-replicate(2,rgamma(n=seq.size,shape=1/cor.par,scale=cor.par))
+  mean.seq<-matrix(mean.true,ncol=nchar(cros.type)/num.seq,nrow=num.seq)
+  mean.cor<-list();data <-matrix(0, nrow = seq.size, ncol = nchar(cros.type))
+  for (i in 1:num.seq){
+    m<-split(c(outer(nui[,i],mean.seq[,i],  function(x, y) x * y)), ceiling(seq_along(c(outer(nui[,i],mean.seq[,i],  function(x, y) x * y)))/seq.size))
+    mean.cor<-append(mean.cor,m)
+    }
+  mean.cor<- t(matrix(unlist(mean.cor), ncol = seq.size, byrow = TRUE))
+  for (i in 1:nchar(cros.type)){
+    list_poisson <- unlist(lapply(mean.cor[,i], FUN = function(x, y) rpois(y, x), y = 1))
+    data[,i]<-list_poisson
+  }
+  return(data)
   }
   
-}
-  
-
-
-
-
-
-
 #MLE of different type of crossover design
 ##param<-c(tao,eta,gamma,delta)
 MLE.ABBA<-function(data,seq.size){
@@ -133,10 +131,87 @@ Matrix.IV<-function(cros.type,mle.values,x.mat,seq.size,data){
   for (i in 1:length(mle.values) ){ 
     mat.I[i,]<-mean.est%*%(t(x.mat)*x.mat[i,])/num.seq
     mat.score[,i]<-sweep(data, 2, mean.est[1,])%*%x.mat[i,]
-    mat.V[i,]<- colSums(mat.score*mat.score[,i])/(seq_size*num.seq)
+    mat.V[i,]<- colSums(mat.score*mat.score[,i])/(seq.size*num.seq)
   }
   mat.V<-Matrix::forceSymmetric(mat.V,uplo="L")
-  return(mat.I,mat.V)
+  list.IV <- list("I.hat" = mat.I, "V.hat" =mat.V)
+  return(list.IV) 
 }
 
-mean_est<-exp(MLE.i%*%x.mat)
+#format that output to excel
+#obj=obj.ind;num.param=length(param_222);MATS=MATS.ind
+Output.Format<-function(obj,num.param,MATS){
+  space<-matrix(c('','',''), nrow=1,ncol = length(c('','','')))
+  obj.names<-matrix(0,ncol = num.param,length(obj))
+  for (i in 1:length(obj)){obj.names[i,]<-cbind(obj[i],space)}
+  #format result that we want to show in excel
+  seq.result<-matrix(c('tao_hat','eta_hat','gamma_hat','delta_hat'),ncol = num.param,nrow = 1)
+  for (i in 1:length(obj)){
+    temp<-rbind(obj.names[i,],MATS[[i]])
+    seq.result<-rbind(seq.result,temp)
+    }
+  
+  return(seq.result)
+}
+#--------------------------------------------------------------------
+#main
+#result:to store result of each seq_size
+result.ind <- list()
+result.cor <- list()
+#simulation for ABBA
+set.seed(19980716)
+for (seq in seq_size){
+  
+  MLE.ind<-matrix(0, nrow = sim_time, ncol = length(param_222))
+  MLE.cor<-matrix(0, nrow = sim_time, ncol = length(param_222))
+  I.ind<- 0 ; I.cor<- 0 ; V.ind<-0 ;V.cor<-0
+  
+  for (i in 1:sim_time){
+    
+    data.ind<-Data.ind(cros.type = cros_type[1],mean.true =Mean.True(param_222,xmat_222),seq.size = seq )
+    MLE.ind.i<-MLE.ABBA(data.ind,seq.size=seq)
+    mean.est<-Mean.True(MLE.ind.i,xmat_222)
+    IV.ind.i<-Matrix.IV(cros.type=cros_type[1], mle.values=MLE.ind.i, x.mat=xmat_222, seq.size=seq, data=data.ind)
+    
+    data.cor<-Data.cor(cros.type = cros_type[1],mean.true =Mean.True(param_222,xmat_222),seq.size =seq,cor.par = cor_par )
+    MLE.cor.i<-MLE.ABBA(data.cor,seq.size=seq)
+    mean.est<-Mean.True(MLE.cor.i,xmat_222)
+    IV.cor.i<-Matrix.IV(cros.type=cros_type[1], mle.values=MLE.cor.i, x.mat=xmat_222, seq.size=seq, data=data.cor)
+    
+    
+    MLE.ind[i,]<-MLE.ind.i
+    I.ind.i<-IV.ind.i$I.hat
+    V.ind.i<-Matrix::forceSymmetric(IV.ind.i$V.hat,uplo="L")
+    I.ind<-I.ind+I.ind.i
+    V.ind<-V.ind+V.ind.i
+    
+    MLE.cor[i,]<-MLE.cor.i
+    I.cor.i<-IV.cor.i$I.hat
+    V.cor.i<-Matrix::forceSymmetric(IV.cor.i$V.hat,uplo="L")
+    I.cor<-I.cor+I.cor.i
+    V.cor<-V.cor+V.cor.i
+    
+    
+    }
+  
+  IVI.cor<-solve(I.cor/sim_time)%*%(as.matrix(V.cor)/sim_time)%*%solve(I.cor/sim_time)
+  #store result in MATS for seq
+  MATS.ind <- list(signif(t(as.matrix(colMeans(MLE.ind))),5),signif(I.ind/sim_time,5),signif(as.matrix(V.ind)/sim_time,5),signif(cov(MLE.ind)*seq*2,5),signif(solve(I.ind/sim_time),5))
+  MATS.cor <- list(signif(t(as.matrix(colMeans(MLE.cor))),5),signif(I.cor/sim_time,5),signif(as.matrix(V.cor)/sim_time,5),signif(cov(MLE.cor)*seq*2,5),signif(IVI.cor,5))
+  
+  obj.ind<-c('MLE.closeform','I.hat.ind','V.hat.ind','NS.MLE.closeform.ind','inv(I.hat.ind)')
+  obj.cor<-c('MLE.closeform','I.hat.cor','V.hat.cor','NS.MLE.closeform.cor','inv(I.hat.cor).V.hat.cor.inv(I.hat.cor)')
+  
+  #format result that we want to show in excel
+  seq.res.ind<-Output.Format(obj=obj.ind,num.param=length(param_222),MATS=MATS.ind)
+  seq.res.cor<-Output.Format(obj=obj.cor,num.param=length(param_222),MATS=MATS.cor)
+  #store result of all seq_size
+  num=seq_size[which(seq_size == seq)]
+  result.ind <- append(result.ind, list( num = seq.res.ind))
+  result.cor <- append(result.cor, list( num = seq.res.cor))
+  
+}
+
+
+write.xlsx(result.ind, file = paste0(Sys.Date(),'ABBAind.xlsx'))
+write.xlsx(result.cor, file = paste0(Sys.Date(),'ABBAcor.xlsx'))

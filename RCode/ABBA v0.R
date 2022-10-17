@@ -63,13 +63,13 @@ for (seq in seq_size){
     
   }
   
-  print(V.hat)
+  
   #remove outlier of MLE.closeform
   #MLE.closeform<-apply(MLE.closeform, 2, sort)
   #MLE.closeform <- MLE.closeform[11:(nrow(MLE.closeform) - 10),]
   
   #store result in MATS for seq
-  MATS <- list(signif(t(as.matrix(colMeans(MLE.optim))),5),signif(t(as.matrix(colMeans(MLE.closeform))),5),signif(I.optim/(sim_time*seq*2),5),signif(I.hat/sim_time,5),signif(V.hat/sim_time,5),signif(cov(MLE.optim)*seq*2,5),signif(cov(MLE.closeform)*seq*2,5),signif(solve(I.hat/sim_time),5))
+  MATS <- list(signif(t(as.matrix(colMeans(MLE.optim))),5),signif(t(as.matrix(colMeans(MLE.closeform))),5),signif(I.optim/(sim_time*seq*2),5),signif(I.hat/sim_time,5),signif(as.matrix(V.hat/sim_time),5),signif(cov(MLE.optim)*seq*2,5),signif(cov(MLE.closeform)*seq*2,5),signif(solve(I.hat/sim_time),5))
   #format result that we want to show in excel
   seq.result<-matrix(c('tao_hat','eta_hat','gamma_hat','delta_hat'),ncol = 4,nrow = 1)
   for (i in 1:length(obj)){
