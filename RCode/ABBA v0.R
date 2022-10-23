@@ -49,57 +49,18 @@ Output.Format<-function(obj,num.param,MATS){
 #================================================
 #Matrix V
 #================================================
-i.eg+cov[1]
-VV<-function(data){
-  var<-diag(cov(data))
-  cov<-c(mean(data[,1]*data[,2])-mean_est[1]*mean_est[2],mean(data[,3]*data[,4])-mean_est[3]*mean_est[4])
-  
-  <-var[2]+cov[1]
-  v.tt/2
-  i.eg+cov[1]
-}
+
 
 #=========================
 #outlier detect
 #=========================
-
-remove.outlier<-function(yi,mean){
-  data.new<-c()
-  while (length(data.new)!=length(yi)){
-    #for first time
-    if (length(data.new)==0){
-      bp <- boxplot(yi, plot = FALSE)
-      if(length(-which(yi %in% bp$out))==0){
-        return(yi)
-        break
-        }else{data.new <- yi[-which(yi %in% bp$out)]}
-      
-    }else{
-      bp <- boxplot(data.new, plot = FALSE)
-      if(length(-which(data.new %in% bp$out))==0){ 
-        return(yi)
-        break}else{
-        data.new <- data.new[-which(data.new %in% bp$out)]
-        data.new<-append(data.new, rpois(length(yi)-length(data.new), lambda = mean))}
-      
-    }
-   
-  }
-  
-  return(data.new) 
-  
-}
-
 library(data.table)
 library(dplyr)
-del.range<-c(.0025, .9975)
+del.range<-c(.01, .99)
 remove.outlier<-function(yi,mean){
   data.new<-yi[do.call(between, c(list(yi), quantile(yi, del.range, names=F)))]
   while (length(data.new)!=length(yi)){data.new<-append(data.new, rpois(length(yi)-length(data.new), lambda = mean))}
   return(data.new) }
-
-
-
 #==========================
 #main
 #==========================
@@ -130,41 +91,41 @@ for (seq in seq_size){
     delta.hat=(log(y.sum[3])+log(y.sum[4])-log(y.sum[1])-log(y.sum[2]))/2
     MLE.i = matrix(c(tao.hat, eta.hat, gamma.hat, delta.hat), nrow=1,ncol=4)
     mean_est<-exp(MLE.i%*%x.mat)
-    # I.hat.i<- matrix(0, nrow = 4, ncol = 4)
-    # V.hat.i<- matrix(0, nrow = 4, ncol = 4)
-    # score<- matrix(0, nrow = seq, ncol = 4)
-    # for (k in 1:length(params) ){ 
-    #    I.hat.i[k,]<-pi*mean_est%*%(t(x.mat)*x.mat[k,])
-    #    score[,k]<-(sweep(data, 2, mean_est[1,]))%*%x.mat[k,]
-    #    V.hat.i[k,]<- colSums(score*score[,k])/(seq*2)
-    # }
-    # 
-    # V.hat.i<-Matrix::forceSymmetric(V.hat.i,uplo="L")
+    I.hat.i<- matrix(0, nrow = 4, ncol = 4)
+    V.hat.i<- matrix(0, nrow = 4, ncol = 4)
+    score<- matrix(0, nrow = seq, ncol = 4)
+    for (k in 1:length(params) ){ 
+      I.hat.i[k,]<-pi*mean_est%*%(t(x.mat)*x.mat[k,])
+      score[,k]<-(sweep(data, 2, mean_est[1,]))%*%x.mat[k,]
+      V.hat.i[k,]<- colSums(score*score[,k])/(seq*2)
+     }
+     
+    V.hat.i<-Matrix::forceSymmetric(V.hat.i,uplo="L")
     
-    i.tt<-sum(mean_est)/2
-    i.ee<-(mean_est[2]+mean_est[3])/2
-    i.gg<-(mean_est[2]+mean_est[4])/2
-    i.dd<-(mean_est[3]+mean_est[4])/2
-    i.eg<-mean_est[2]/2
-    i.ed<-mean_est[3]/2
-    i.gd<-mean_est[4]/2
-    I.hat.i<-matrix(c(i.tt,i.ee,i.gg,i.dd,i.ee,i.ee,i.eg,i.ed,
-                 i.gg,i.eg,i.gg,i.gd,i.dd,i.ed,i.gd,i.dd), nrow = 4, ncol = 4,byrow=TRUE)
-    var<-diag(cov(data))
-    cov<-c(mean(data[,1]*data[,2])-mean_est[1]*mean_est[2],mean(data[,3]*data[,4])-mean_est[3]*mean_est[4])
-    v.tt = i.tt + sum(cov)
-    v.ee = i.ee
-    v.gg = i.gg
-    v.dd = i.dd + cov[2]
-    v.te = i.ee + sum(cov)/2
-    v.tg = i.gg + sum(cov)/2
-    v.td = i.dd + cov[2]
-    v.eg = i.eg + cov[2]/2
-    v.ed = i.ed + cov[2]/2
-    v.gd = i.gd + cov[2]/2
-    V.hat.i = matrix( c(v.tt, v.te, v.tg, v.td, v.te, v.ee, v.eg, v.ed, 
-                  v.tg, v.eg, v.gg, v.gd, v.td, v.ed, v.gd, v.dd),
-                nrow=4, ncol=4, byrow = TRUE)
+    # i.tt<-sum(mean_est)/2
+    # i.ee<-(mean_est[2]+mean_est[3])/2
+    # i.gg<-(mean_est[2]+mean_est[4])/2
+    # i.dd<-(mean_est[3]+mean_est[4])/2
+    # i.eg<-mean_est[2]/2
+    # i.ed<-mean_est[3]/2
+    # i.gd<-mean_est[4]/2
+    # I.hat.i<-matrix(c(i.tt,i.ee,i.gg,i.dd,i.ee,i.ee,i.eg,i.ed,
+    #              i.gg,i.eg,i.gg,i.gd,i.dd,i.ed,i.gd,i.dd), nrow = 4, ncol = 4,byrow=TRUE)
+    # var<-diag(cov(data))
+    # cov<-c(mean(data[,1]*data[,2])-mean_est[1]*mean_est[2],mean(data[,3]*data[,4])-mean_est[3]*mean_est[4])
+    # v.tt = i.tt + sum(cov)
+    # v.ee = i.ee
+    # v.gg = i.gg
+    # v.dd = i.dd + cov[2]
+    # v.te = i.ee + sum(cov)/2
+    # v.tg = i.gg + sum(cov)/2
+    # v.td = i.dd + cov[2]
+    # v.eg = i.eg + cov[2]/2
+    # v.ed = i.ed + cov[2]/2
+    # v.gd = i.gd + cov[2]/2
+    # V.hat.i = matrix( c(v.tt, v.te, v.tg, v.td, v.te, v.ee, v.eg, v.ed, 
+    #               v.tg, v.eg, v.gg, v.gd, v.td, v.ed, v.gd, v.dd),
+    #             nrow=4, ncol=4, byrow = TRUE)
     MLE.closeform[i,]<- MLE.i
     I.hat<-I.hat+I.hat.i
     V.hat<-V.hat+V.hat.i
@@ -189,9 +150,9 @@ for (seq in seq_size){
    result <- append(result, list( num = seq.result))
   
 }
-MATS
+# MATS
 library(xlsx)
-write.xlsx(result, file = paste0(Sys.Date(),'.xlsx'))
+write.xlsx(result, file = paste0(Sys.Date(),del.range[2]-del.range[1],'.xlsx'))
 
 
 summary(MLE.closeform)
