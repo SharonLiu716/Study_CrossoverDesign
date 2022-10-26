@@ -3,7 +3,7 @@ setwd("C:/Github/Study_CrossoverDesign/RCode")
 #=============================================
 #simulation parameter
 #=============================================
-sim_time=3000;cor_par=1/6
+sim_time=5000;cor_par=1/6
 seq_size=c(25,50,100,200,300)
 cros_type=c('ABBA','ABBBAA','AABABABAA','ABCBCACAB','BACACBBCA','BBAACBCAC')
 #=============================================
@@ -33,9 +33,10 @@ xmat_333.3=matrix(c(1,1,1,1,1,1,1,1,1, 1,1,0,0,0,1,0,0,0, 0,0,0,0,1,0,1,0,1, 0,1
 Mean.True<-function(Par.values,x.mat){  return(exp(Par.values%*%x.mat))}
 
 #I.true
-Matrix.I<-function(cors.type,params,x.mat){
+Matrix.I<-function(cros.type,params,x.mat){
   num.seq<-if (nchar(cros.type)==9) 3 else 2
   mat.I<- matrix(0, nrow = length(params), ncol = length(params))
+  Mean<-Mean.True(Par.values=params,x.mat=x.mat)
   for (i in 1:length(params) ){ mat.I[i,]<-Mean%*%(t(x.mat)*x.mat[i,])/num.seq}
   return(mat.I)
 }
@@ -67,9 +68,7 @@ Data.cor<-function(cros.type,mean.true,seq.size,cor.par){
   return(data)
 }
 #--------------------------------------------------------------------
-#get correlation matrix
-data.cor<-Data.cor(cros.type = cros_type[1],mean.true =Mean.True(param_222,xmat_222),seq.size =100000,cor.par = cor_par )
-cor(data.cor)
+
 #======================================================================
 #MLE of different type of crossover design
 #======================================================================
@@ -172,6 +171,20 @@ Output.Format<-function(obj,num.param,MATS){
   return(seq.result)
 }
 #--------------------------------------------------------------------
+
+#========================================
+#True I、correlation、true V
+#========================================
+set.seed(7353)
+ABBA.I<-Matrix.I(cros.type=cros_type[1],params=param_222,x.mat=xmat_222)
+#get correlation matrix
+df.ind<-Data.ind(cros.type = cros_type[1],mean.true =Mean.True(param_222,xmat_222),seq.size =100000 )
+df.cor<-Data.cor(cros.type = cros_type[1],mean.true =Mean.True(param_222,xmat_222),seq.size =100000,cor.par = cor_par )
+cor(df.ind)
+cor(df.cor)
+Matrix.IV(cros.type=cros_type[1],mle.values=param_222,x.mat=xmat_222,seq.size=100000,data=df.ind)
+Matrix.IV(cros.type=cros_type[1],mle.values=param_222,x.mat=xmat_222,seq.size=100000,data=df.cor)
+
 #========================================
 #main
 #result:to store result of each seq_size
@@ -185,7 +198,7 @@ for (seq in seq_size){
   MLE.ind<-matrix(0, nrow = sim_time, ncol = length(param_222))
   MLE.cor<-matrix(0, nrow = sim_time, ncol = length(param_222))
   I.ind<- 0 ; I.cor<- 0 ; V.ind<-0 ;V.cor<-0;invI.ind<-0;invI.cor<-0
-  set.seed(7354)
+  set.seed(7353)
   for (i in 1:sim_time){
     
     data.ind<-Data.ind(cros.type = cros_type[1],mean.true =Mean.True(param_222,xmat_222),seq.size = seq )
@@ -218,8 +231,8 @@ for (seq in seq_size){
     
     }
   
-  #IVI.cor<-solve(I.cor/sim_time)%*%(as.matrix(V.cor)/sim_time)%*%solve(I.cor/sim_time)
-  IVI.cor<-(invI.cor/sim_time)%*%(as.matrix(V.cor)/sim_time)%*%(invI.cor/sim_time)
+  IVI.cor<-solve(I.cor/sim_time)%*%(as.matrix(V.cor)/sim_time)%*%solve(I.cor/sim_time)
+  #IVI.cor<-(invI.cor/sim_time)%*%(as.matrix(V.cor)/sim_time)%*%(invI.cor/sim_time)
   #store result in MATS for seq
   MATS.ind <- list(signif(t(as.matrix(colMeans(MLE.ind))),5),signif(I.ind/sim_time,5),signif(as.matrix(V.ind)/sim_time,5),signif(cov(MLE.ind)*seq*2,5),signif(invI.ind/sim_time,5))
   MATS.cor <- list(signif(t(as.matrix(colMeans(MLE.cor))),5),signif(I.cor/sim_time,5),signif(as.matrix(V.cor)/sim_time,5),signif(cov(MLE.cor)*seq*2,5),signif(IVI.cor,5))
