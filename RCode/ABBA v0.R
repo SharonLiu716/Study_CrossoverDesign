@@ -56,7 +56,7 @@ Output.Format<-function(obj,num.param,MATS){
 #=========================
 library(data.table)
 library(dplyr)
-del.range<-c(.01, .99)
+del.range<-c(.025, .9975)
 remove.outlier<-function(yi,mean){
   data.new<-yi[do.call(between, c(list(yi), quantile(yi, del.range, names=F)))]
   while (length(data.new)!=length(yi)){data.new<-append(data.new, rpois(length(yi)-length(data.new), lambda = mean))}
@@ -152,7 +152,8 @@ for (seq in seq_size){
 }
 # MATS
 library(xlsx)
-write.xlsx(result, file = paste0(Sys.Date(),del.range[2]-del.range[1],'.xlsx'))
+write.xlsx(result, file = paste0(Sys.Date(),paste(del.range,"-",collapse=" "),'.xlsx'))
+
 
 
 summary(MLE.closeform)

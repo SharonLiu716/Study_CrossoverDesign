@@ -1,22 +1,31 @@
 
 setwd("C:/Github/Study_CrossoverDesign/RCode")
+#=============================================
 #simulation parameter
-sim_time=5000;cor_par=1/6
-seq_size=c(25,50,100,200)
+#=============================================
+sim_time=3000;cor_par=1/6
+seq_size=c(25,50,100,200,300)
 cros_type=c('ABBA','ABBBAA','AABABABAA','ABCBCACAB','BACACBBCA','BBAACBCAC')
-#true value of params with treat-seq-time 
+#=============================================
+#true value of params with treat-seq-time
+#=============================================
 param_222=c(1.0,0.7,0.3,0.2);param_223=c(1.0,0.7,0.3,0.3,0.2);param_233=c(1.0,0.7,0.3,0.3,0.2,0.2);param_333=c(1.0,0.7,0.7,0.3,0.3,0.2,0.2)
+#=================================================
 #Link of Yist:Y11,Y12,Y21,Y22
-#row is vector of param,column is x.mat of Yist 
-xmat_222=matrix(c(1,0,0,0, 1,1,1,0, 1,1,0,1, 1,0,1,1), nrow = 4, ncol = 4)
-xmat_223=matrix(c(1,0,0,0,0, 1,1,1,0,0, 1,1,0,1,0, 1,1,0,0,1, 1,0,1,0,1, 1,0,0,1,1), nrow = 5, ncol = 6)
-xmat_233=matrix(c(1,0,0,0,0,0, 1,0,1,0,0,0, 1,1,0,1,0,0, 1,0,0,0,1,0, 1,1,1,0,0,0, 1,0,0,1,1,0, 1,1,0,0,0,1, 1,0,1,0,0,1, 1,0,0,1,0,1), nrow = 6, ncol = 9)
+#row is vector of param,column is x.mat of Yist
+#=================================================
+#ABBA
+xmat_222=matrix(c(1,1,1,1, 0,1,1,0, 0,1,0,1, 0,0,1,1), nrow = 4, ncol = 4,byrow = TRUE)
+#ABBBAA
+xmat_223=matrix(c(1,1,1,1,1,1, 0,1,1,1,0,0, 0,1,0,0,1,0, 0,0,1,0,0,1, 0,0,0,1,1,1), nrow = 5, ncol = 6,byrow = TRUE)
+#AABABABAA
+xmat_233=matrix(c(1,1,1,1,1,1,1,1,1, 0,0,1,0,1,0,1,0,0, 0,1,0,0,1,0,0,1,0, 0,0,1,0,0,1,0,0,1, 0,0,0,1,1,1,0,0,0, 0,0,0,0,0,0,1,1,1), nrow = 6, ncol = 9,byrow = TRUE)
 #ABCBCACAB
-xmat_333.1=matrix(c(1,0,0,0,0,0,0, 1,1,0,1,0,0,0, 1,0,1,0,1,0,0, 1,1,0,0,0,1,0, 1,0,1,1,0,1,0, 1,0,0,0,1,1,0, 1,0,1,0,0,0,1, 1,0,0,1,0,0,1, 1,1,0,0,1,0,1), nrow = 7, ncol = 9)
+xmat_333.1=matrix(c(1,1,1,1,1,1,1,1,1, 0,1,0,1,0,0,0,0,1, 0,0,1,0,1,0,1,0,0, 0,1,0,0,1,0,0,1,0, 0,0,1,0,0,1,0,0,1, 0,0,0,1,1,1,0,0,0, 0,0,0,0,0,0,1,1,1), nrow = 7, ncol = 9,byrow = TRUE)
 #BACACBBCA
-xmat_333.2=matrix(c(1,1,0,0,0,0,0, 1,0,0,1,0,0,0, 1,0,1,0,1,0,0, 1,0,0,0,0,1,0, 1,0,1,1,0,1,0, 1,1,0,0,1,1,0, 1,1,0,0,0,0,1, 1,0,1,1,0,0,1, 1,0,0,0,1,0,1), nrow = 7, ncol = 9)
+xmat_333.2=matrix(c(1,1,1,1,1,1,1,1,1, 1,0,0,0,0,1,1,0,0, 0,0,1,0,1,0,0,1,0, 0,1,0,0,1,0,0,1,0, 0,0,1,0,0,1,0,0,1, 0,0,0,1,1,1,0,0,0, 0,0,0,0,0,0,1,1,1), nrow = 7, ncol = 9,byrow = TRUE)
 #BBAACBCAC
-xmat_333.3=matrix(c(1,1,0,0,0,0,0, 1,1,0,1,0,0,0, 1,0,0,0,1,0,0, 1,0,0,0,0,1,0, 1,0,1,1,0,1,0, 1,1,0,0,1,1,0, 1,0,1,0,0,0,1, 1,0,0,1,0,0,1, 1,0,1,0,1,0,1), nrow = 7, ncol = 9)
+xmat_333.3=matrix(c(1,1,1,1,1,1,1,1,1, 1,1,0,0,0,1,0,0,0, 0,0,0,0,1,0,1,0,1, 0,1,0,0,1,0,0,1,0, 0,0,1,0,0,1,0,0,1, 0,0,0,1,1,1,0,0,0, 0,0,0,0,0,0,1,1,1), nrow = 7, ncol = 9,byrow = TRUE)
 #========================================
 #Function of output object
 #========================================
@@ -30,16 +39,17 @@ Matrix.I<-function(cors.type,params,x.mat){
   for (i in 1:length(params) ){ mat.I[i,]<-Mean%*%(t(x.mat)*x.mat[i,])/num.seq}
   return(mat.I)
 }
-#--------------------------------------------------------------------
+#======================================================================
 #Generate data
-#--------------------------------------------------------------------
+#======================================================================
+
 Data.ind<-function(cros.type,mean.true,seq.size){
     num.seq<-if (nchar(cros.type)==9) 3 else 2
     data <-  matrix(0, nrow = seq.size, ncol = nchar(cros.type))
     for (j in 1:length(mean.true)) {data[,j] =rpois(seq.size, lambda = mean.true[1,j])}
     return(data)
   }
-
+#--------------------------------------------------------------------
 Data.cor<-function(cros.type,mean.true,seq.size,cor.par){
   num.seq<-if (nchar(cros.type)==9) 3 else 2
   nui<-replicate(2,rgamma(n=seq.size,shape=1/cor.par,scale=cor.par))
@@ -56,12 +66,13 @@ Data.cor<-function(cros.type,mean.true,seq.size,cor.par){
   }
   return(data)
 }
-
+#--------------------------------------------------------------------
+#get correlation matrix
 data.cor<-Data.cor(cros.type = cros_type[1],mean.true =Mean.True(param_222,xmat_222),seq.size =100000,cor.par = cor_par )
 cor(data.cor)
-#--------------------------------------------------------------------  
+#======================================================================
 #MLE of different type of crossover design
-#--------------------------------------------------------------------
+#======================================================================
 ##param<-c(tao,eta,gamma,delta)
 MLE.ABBA<-function(data,seq.size){
   y.sum=colSums(data)
@@ -168,13 +179,13 @@ Output.Format<-function(obj,num.param,MATS){
 result.ind <- list()
 result.cor <- list()
 #simulation for ABBA
-set.seed(7353)
+
 for (seq in seq_size){
   
   MLE.ind<-matrix(0, nrow = sim_time, ncol = length(param_222))
   MLE.cor<-matrix(0, nrow = sim_time, ncol = length(param_222))
   I.ind<- 0 ; I.cor<- 0 ; V.ind<-0 ;V.cor<-0;invI.ind<-0;invI.cor<-0
-  
+  set.seed(7354)
   for (i in 1:sim_time){
     
     data.ind<-Data.ind(cros.type = cros_type[1],mean.true =Mean.True(param_222,xmat_222),seq.size = seq )
