@@ -19,6 +19,9 @@ i.ed<-mean_true[3]/2
 i.gd<-mean_true[4]/2
 II<-matrix(c(i.tt,i.ee,i.gg,i.dd,i.ee,i.ee,i.eg,i.ed,
              i.gg,i.eg,i.gg,i.gd,i.dd,i.ed,i.gd,i.dd), nrow = 4, ncol = 4,byrow=TRUE)
+i.ep<-matrix(c(i.ee,i.eg,i.ed),ncol = 3)
+i.pp<-matrix(c(i.tt,i.gg,i.dd,i.gg,i.gg,i.gd,i.dd,i.gd,i.dd),ncol = 3,nrow = 3)
+i.ee-i.ep%*%solve(i.pp)%*%t(i.ep)
 I.true<- matrix(0, nrow = 4, ncol = 4)
 for (i in 1:length(params) ){ I.true[i,]<-0.5*mean_true%*%(t(x.mat)*x.mat[i,])}
 #the form of matrix that export to excel
