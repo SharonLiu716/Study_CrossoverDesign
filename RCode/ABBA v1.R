@@ -3,7 +3,7 @@ setwd("C:/Users/User/Documents/Study_CrossoverDesign/RCode")
 #=============================================
 #simulation parameter
 #=============================================
-sim_time=5000;cor_par=1/6
+sim_time=5000;cor_par=1
 seq_size=c(25,50,100,200,300)
 cros_type=c('ABBA','ABBBAA','AABABABAA','ABCBCACAB','BACACBBCA','BBAACBCAC')
 #=============================================
