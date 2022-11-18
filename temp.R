@@ -4,8 +4,8 @@ require(numDeriv)
 require(MASS)
 
 setwd("C:/Users/User/Documents/Study_CrossoverDesign/RCode")
-sim_time=2000;cor_par=1;seq=100
-param=c(0.5,0,0.4,-0.2)
+sim_time=5000;cor_par=0.8;seq=100
+param=c(0.3,0,0.4,-1.0)
 xmat=matrix(c(1,1,1,1, 0,1,1,0, 0,1,0,1, 0,0,1,1), nrow = 4, ncol = 4,byrow = TRUE)
 mean.true=exp(param%*%xmat)
 X = c(rep(0,seq), rep(1,2*seq), rep(0,seq))
@@ -21,12 +21,17 @@ invI.optim=0;invI.glm=0;invI.closeform=0;I.cf=0;V.cf=0;I.glm=0;I.optim=0
 tao<-c();eta<-c();gam<-c();del<-c()
 set.seed(110225021)
 for (i in 1:sim_time){
-  
-  y11<-rpois(seq, lambda = 1.65)
-  y12<-rpois(seq, lambda = 2.46)
-  y21<-rpois(seq, lambda = 1.35)
-  y22<-rpois(seq, lambda = 2.01)
+  #mean=r*(1-p)/p
+  y11<-rnbinom(n = seq, size = 2, prob = 0.6)
+  y12<-rnbinom(n = seq, size = 3, prob = 0.6)
+  y21<-rnbinom(n = seq, size = 2, prob = 0.8)
+  y22<-rnbinom(n = 100000, size = 3, prob = 0.8)
   Y <- c(y11,y12,y21,y22)
+  # y11<-rpois(seq, lambda = 1.65)
+  # y12<-rpois(seq, lambda = 2.46)
+  # y21<-rpois(seq, lambda = 1.35)
+  # y22<-rpois(seq, lambda = 2.01)
+  # Y <- c(y11,y12,y21,y22)
   df.ind = data.frame(Y,X,Z,G)
   #---------------------------------
   #loglikelihood own define
@@ -102,28 +107,34 @@ MLE.glm<-matrix(0, nrow = sim_time, ncol = 4)
 MLE.closeform<-matrix(0, nrow = sim_time, ncol = 4)
 invI.optim=0;invI.glm=0;invI.closeform=0;I.cf=0;V.cf=0;I.glm=0;I.optim=0
 tao<-c();eta<-c();gam<-c();del<-c()
+mean.cor<-matrix(0, nrow = seq, ncol = nchar('ABBA'))
+data.cor<-matrix(0, nrow = seq, ncol = nchar('ABBA'))
 set.seed(110225021)
 for (i in 1:sim_time){
+   
+  # nui<-replicate(2,rgamma(n=100000,shape=1/cor_par,scale=cor_par))
+  # mean.cor[,1]<-mean.true[,1]*nui[,1]
+  # mean.cor[,2]<-mean.true[,2]*nui[,1]
+  # mean.cor[,3]<-mean.true[,3]*nui[,2]
+  # mean.cor[,4]<-mean.true[,4]*nui[,2]
   
-  nui<-replicate(2,rgamma(n=seq,shape=1/cor_par,scale=cor_par))
-  mean.seq<-matrix(mean.true,ncol=nchar(cros.type)/num.seq,nrow=num.seq)
-  mean.cor<-list();data <-matrix(0, nrow = seq.size, ncol = nchar(cros.type))
-  for (i in 1:num.seq){
-    m<-split(c(outer(nui[,i],mean.seq[,i],  function(x, y) x * y)), ceiling(seq_along(c(outer(nui[,i],mean.seq[,i],  function(x, y) x * y)))/seq.size))
-    mean.cor<-append(mean.cor,m)
-  }
-  mean.cor<- t(matrix(unlist(mean.cor), ncol = seq.size, byrow = TRUE))
-  for (i in 1:nchar(cros.type)){
-    list_poisson <- unlist(lapply(mean.cor[,i], FUN = function(x, y) rpois(y, x), y = 1))
-    data[,i]<-list_poisson
-  }
-  y1 = c(rep(0,seq), rep(1,2*seq), rep(0,seq))
-  y11<-rpois(seq, lambda = 1.65)
-  y12<-rpois(seq, lambda = 2.46)
-  y21<-rpois(seq, lambda = 1.35)
-  y22<-rpois(seq, lambda = 2.01)
+  # for (i in 1:nchar('ABBA')){
+  #   list_poisson <- unlist(lapply(mean.cor[,i], FUN = function(x) rpois(1, x)))
+  #   data.cor[,i]<-list_poisson
+  # }
+  
+  # y1 <- rbvpois(100000, mean.true[1],  mean.true[2], 2.0)
+  # y2 <- rbvpois(100000, mean.true[3],  mean.true[4], 1.5)
+  # y11<-y1[,1];y12<-y1[,2];y21<-y2[,1];y22<-y2[,2]
+  
+  l1 <- c(1.33, 2); l2 <- c(0.5, 0.75) # lambda for each new variable
+  y1 <- genCorGen(seq, nvars = 2, params1 = l1, dist = "poisson", rho = .4, corstr = "cs", wide = TRUE,cnames='y11,y12')
+  y1 <-as.matrix(y1[,c('y11','y12')])
+  y2 <- genCorGen(seq, nvars = 2, params1 = l2, dist = "poisson", rho = .4, corstr = "cs", wide = TRUE,cnames='y21,y22')
+  y2 <-as.matrix(y2[,c('y21','y22')])
+  y11<-y1[,1];y12<-y1[,2];y21<-y2[,1];y22<-y2[,2]
   Y <- c(y11,y12,y21,y22)
-  df.ind = data.frame(Y,X,Z,G)
+  df.cor = data.frame(Y,X,Z,G)
   #---------------------------------
   #loglikelihood own define
   #---------------------------------
@@ -136,18 +147,17 @@ for (i in 1:sim_time){
   #---------------------------------
   #GLM
   #---------------------------------
-  mod.1 <- glm(Y ~ X + Z + G, family = poisson(link = "log"), df.ind)
+  mod.1 <- glm(Y ~ X + Z + G, family = poisson(link = "log"), df.cor)
   MLE.glm[i,]<-coef(mod.1)
   I.glm<-I.glm+solve(vcov(mod.1))/(2*seq)
   invI.glm <-invI.glm+vcov(mod.1)*(2*seq)
   #---------------------------------
   #closeform
   #---------------------------------
-  
-  tao[i]<-mean(y11)
-  eta[i]<-sqrt( sum(y12)*sum(y21)/(sum(y11)*sum(y22)) )
-  gam[i]<-sqrt( sum(y12)*sum(y22)/(sum(y11)*sum(y21)) )
-  del[i]<-sqrt( sum(y21)*sum(y22)/(sum(y11)*sum(y12)) )
+  tao[i]<-exp(log(mean(y11)))
+  eta[i]<-exp(0.5*(log( sum(y12))+log(sum(y21))-log(sum(y11))-log(sum(y22))))
+  gam[i]<-exp(0.5*(log( sum(y12))+log(sum(y22))-log(sum(y11))-log(sum(y21))))
+  del[i]<-exp(0.5*(log( sum(y21))+log(sum(y22))-log(sum(y11))-log(sum(y12))))
   i.tt<-( tao[i]+tao[i]*eta[i]*gam[i] + tao[i]*eta[i]*del[i]+tao[i]*gam[i]*del[i] )/2
   i.te<-( tao[i]*eta[i]*gam[i] + tao[i]*eta[i]*del[i] )/2
   i.tg<-( tao[i]*eta[i]*gam[i] + tao[i]*gam[i]*del[i] )/2
@@ -189,6 +199,10 @@ log(c(mean(tao),mean(eta),mean(gam),mean(del)))
 I.cf/sim_time
 invI.closeform/sim_time
 V.cf/sim_time
+
+(invI.optim/sim_time)%*%(V.cf/sim_time)%*%(invI.optim/sim_time)
+(invI.glm/sim_time)%*%(V.cf/sim_time)%*%(invI.glm/sim_time)
+(invI.closeform/sim_time)%*%(V.cf/sim_time)%*%(invI.closeform/sim_time)
 
 
 Data.cor<-function(cros.type,mean.true,seq.size,cor.par){
