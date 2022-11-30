@@ -8,7 +8,7 @@ cros_type=c('ABBA','ABBBAA','AABABABAA','ABCBCACAB','BACACBBCA','BBAACBCAC')
 #=============================================
 #true value of params with treat-seq-time
 #=============================================
-param_222=c(0.2,0,-0.7,-0.2)
+param_222=c(0.4,0,-0.5,0.2)
 #=================================================
 #Link of Yist:Y11,Y12,Y21,Y22
 #row is vector of param,column is x.mat of Yist
@@ -82,14 +82,14 @@ Matrix.IV<-function(cros.type,mle.values,x.mat,seq.size,data){
   num.seq<-if (nchar(cros.type)==9) 3 else 2
   mat.I<- matrix(0, nrow = length(mle.values), ncol = length(mle.values))
   mat.V<- matrix(0, nrow = length(mle.values), ncol = length(mle.values))
-  mat.score<- matrix(0, nrow = seq.size, ncol = length(mle.values))
-  mean.est<-exp(mle.values%*%x.mat)
+
+  est.mean<-exp(mle.values%*%x.mat)
+  
   for (i in 1:length(mle.values) ){ 
-    mat.I[i,]<-mean.est%*%(t(x.mat)*x.mat[i,])/num.seq
-    mat.score[,i]<-sweep(data, 2, mean.est[1,])%*%x.mat[i,]
-    mat.V[i,]<- colSums(mat.score*mat.score[,i])/(seq.size*num.seq)
+    mat.I[i,]<-est.mean%*%(t(x.mat)*x.mat[i,])/num.seq
+    mat.V[i,]<- colMeans(sweep(data, 2,  est.mean[1,])^2%*%(t(x.mat)*x.mat[i,]))/num.seq
   }
-  mat.V<-Matrix::forceSymmetric(mat.V,uplo="L")
+  
   list.IV <- list("I.hat" = mat.I, "V.hat" =mat.V)
   return(list.IV) 
 }
@@ -119,167 +119,191 @@ MLE.ABBAnull<-function(data,seq.size,eta.null){
   return(MLE.i.null)
 }
 Matrix.AB<-function(Mat.I,Mat.V,loc){
-  Mat.I<-I.ind.i
   diag.I<-as.matrix(diag(Mat.I),byrow = TRUE)
   diag.V<-as.matrix(diag(Mat.V),byrow = TRUE)
   #I.theta.theta
   I.tt<-diag.I[loc];V.tt<-diag.V[loc];I.pp<-Mat.I[-c(loc),-c(loc)];V.pp<-Mat.V[-c(loc),-c(loc)]
   I.tp<-as.matrix(Mat.I[loc,]);I.tp<-as.matrix(I.tp[-c(loc),]);V.tp<-as.matrix(Mat.V[loc,]);V.tp<-as.matrix(V.tp[-c(loc),])
   #mat.A
-  Mat.A<-I.tt-t(I.tp)%*%solve(I.pp)%*%I.tp
-  Mat.B<-V.tt-2*t(I.tp)%*%solve(I.pp)%*%V.tp+t(I.tp)%*%solve(I.pp)%*%V.pp%*%solve(I.pp)%*%I.tp
+  Mat.B<-I.tt-t(I.tp)%*%solve(I.pp)%*%I.tp
+  Mat.A<-V.tt-2*t(I.tp)%*%solve(I.pp)%*%V.tp+t(I.tp)%*%solve(I.pp)%*%V.pp%*%solve(I.pp)%*%I.tp
   Mat.AB<- list("Mat.A" = Mat.A, "Mat.B" =Mat.B)
   return(Mat.AB)
 }
 
 #========================================
-#main
+#main-independent
 #result:to store result of each seq_size
 #========================================
-result.ind <- list();result.cor <- list();pvalue.ind<-list();pvalue.cor<-list()
+result.ind <- list();pvalue.ind<-list()
 #simulation for ABBA
 seq=100
 MLE.ind<-matrix(0, nrow = sim_time, ncol = length(param_222))
-MLE.cor<-matrix(0, nrow = sim_time, ncol = length(param_222))
 MLE.null.ind<-matrix(0, nrow = sim_time, ncol = length(param_222))
-MLE.null.cor<-matrix(0, nrow = sim_time, ncol = length(param_222))
-I.ind<- 0 ; I.cor<- 0 ; V.ind<-0 ;V.cor<-0;invI.ind<-0;invI.cor<-0
+
+I.ind<- 0 ; V.ind<-0 ; invI.ind<-0
 # Create df for statistics
 statistics.columns <- c("Wald.na","Wald.rb",'Score.na','Score.rb',"LR.na") 
 df.statistics.ind <- data.frame(matrix(nrow = sim_time, ncol = length(statistics.columns))) 
 colnames(df.statistics.ind) <- statistics.columns
-df.statistics.cor = data.frame(matrix(nrow = sim_time, ncol = length(statistics.columns))) 
-colnames(df.statistics.cor) <- statistics.columns
-matA.ind<-c();matB.ind<-c();matA.cor<-c();matB.cor<-c();matA.ind.null<-c();matB.ind.null<-c();matA.cor.null<-c();matB.cor.null<-c()
-indt.A<-c();indt.B<-c();indg.A<-c();indg.B<-c();indd.A<-c();indd.B<-c()
-cort.A<-c();cort.B<-c();corg.A<-c();corg.B<-c();cord.A<-c();cord.B<-c()
+matA.ind<-c();matB.ind<-c();matA.ind.null<-c();matB.ind.null<-c()
+X = c(rep(0,seq), rep(1,2*seq), rep(0,seq))
+Z = c(rep(0,seq), rep(1,seq), rep(0,seq), rep(1,seq))
+G = c(rep(0,2*seq), rep(1,2*seq))
+
 set.seed(7353)
 for (i in 1:sim_time){
     #====================================================
     #I,V,IVI
     #====================================================
     theta.null=0
-    # X = c(rep(0,seq), rep(1,2*seq), rep(0,seq))
-    # Z = c(rep(0,seq), rep(1,seq), rep(0,seq), rep(1,seq))
-    # G = c(rep(0,2*seq), rep(1,2*seq))
     #independent
     data.ind<-Data.ind(cros.type = cros_type[1],mean.true =mean_true,seq.size = seq )
     
-    #use package to do testing
-    # Y <- c(data.ind[,1],data.ind[,2],data.ind[,3],data.ind[,4])
-    # df.ind = data.frame(Y,X,Z,G)
-    # mod.1 <- glm(Y ~ X + Z + G, family = poisson(link = "log"), df.ind)
-    # mod.0 <- glm(Y ~ Z + G, family = poisson(link = "log"), df.ind)
-    # MLE.ind[i,]<-c( mod.1$coefficients[1],mod.1$coefficients[2],mod.1$coefficients[3],mod.1$coefficients[4])#MLE.ABBA(data.ind)
-    # MLE.null.ind[i,]<-c( mod.0$coefficients[1],theta.null,mod.0$coefficients[2],mod.0$coefficients[3])#MLE.ABBAnull(data = data.ind, seq.size = seq, eta.null=theta.null)
-    # 
     #use closeform to do testing
     MLE.ind[i,]<- MLE.ABBA(data.ind)
     MLE.null.ind[i,]<-MLE.ABBAnull(data = data.ind, seq.size = seq, eta.null=theta.null)
     mean.est<-Mean.True(MLE.ind[i,],xmat_222)
     IV.ind.i<-Matrix.IV(cros.type=cros_type[1], mle.values=MLE.ind[i,], x.mat=xmat_222, seq.size=seq, data=data.ind)
-    
-    #correlated
-    data.cor<-Data.cor(cros.type = cros_type[1],mean.true =mean_true,seq.size =seq,cor.par = cor_par )
-    #use package to do testing
-    # Y <- c(data.cor[,1],data.cor[,2],data.cor[,3],data.cor[,4])
-    # df.cor = data.frame(Y,X,Z,G)
-    # mod.1 <- glm(Y ~ X + Z + G, family = poisson(link = "log"), df.cor)
-    # mod.0 <- glm(Y ~ Z + G, family = poisson(link = "log"), df.cor)
-    # MLE.cor[i,]<-c( mod.1$coefficients[1],mod.1$coefficients[2],mod.1$coefficients[3],mod.1$coefficients[4])
-    # MLE.null.cor[i,]<-c( mod.0$coefficients[1],theta.null,mod.0$coefficients[2],mod.0$coefficients[3])
-    
-    MLE.cor[i,]<- MLE.ABBA(data.cor)
-    MLE.null.cor[i,]<- MLE.ABBAnull(data = data.cor, seq.size = seq, eta.null=theta.null)
-    mean.est<-Mean.True(MLE.cor[i,],xmat_222)
-    IV.cor.i<-Matrix.IV(cros.type=cros_type[1], mle.values=MLE.cor[i,], x.mat=xmat_222, seq.size=seq, data=data.cor)
-    
+  
     #store result of MLE,I,V,inv.I
-    
     I.ind.i<-IV.ind.i$I.hat
-    V.ind.i<-Matrix::forceSymmetric(IV.ind.i$V.hat,uplo="L")
+    V.ind.i<-IV.ind.i$V.hat
     invI.ind.i<-solve(I.ind.i)
     I.ind<-I.ind+I.ind.i
     V.ind<-V.ind+V.ind.i
     invI.ind<-invI.ind+invI.ind.i
     
-    I.cor.i<-IV.cor.i$I.hat
-    V.cor.i<-Matrix::forceSymmetric(IV.cor.i$V.hat,uplo="L")
-    invI.cor.i<-solve(I.cor.i)
-    I.cor<-I.cor+I.cor.i
-    V.cor<-V.cor+V.cor.i
-    invI.cor<-invI.cor+invI.cor.i
     #=========================================================================
     #output:matrix AB, Wald statistics,LR statistics, Score statistics
     #=========================================================================
     matA.ind[i]<-Matrix.AB(I.ind.i,as.matrix(V.ind.i),2)$Mat.A
     matB.ind[i]<-Matrix.AB(I.ind.i,as.matrix(V.ind.i),2)$Mat.B
-    indt.A[i]<-Matrix.AB(I.ind.i,as.matrix(V.ind.i),1)$Mat.A
-    indt.B[i]<-Matrix.AB(I.ind.i,as.matrix(V.ind.i),1)$Mat.B
-    indg.A[i]<-Matrix.AB(I.ind.i,as.matrix(V.ind.i),3)$Mat.A
-    indg.B[i]<-Matrix.AB(I.ind.i,as.matrix(V.ind.i),3)$Mat.B
-    indd.A[i]<-Matrix.AB(I.ind.i,as.matrix(V.ind.i),4)$Mat.A
-    indd.B[i]<-Matrix.AB(I.ind.i,as.matrix(V.ind.i),4)$Mat.B
     
-    IV.ind.null<-Matrix.IV(cros.type=cros_type[1], mle.values=MLE.null.ind[i,], x.mat=xmat_222, seq.size=seq, data=data.cor)
+    IV.ind.null<-Matrix.IV(cros.type=cros_type[1], mle.values=MLE.null.ind[i,], x.mat=xmat_222, seq.size=seq, data=data.ind)
     I.ind.null<-IV.ind.null$I.hat
-    V.ind.null<-Matrix::forceSymmetric(IV.ind.null$V.hat,uplo="L")
+    V.ind.null<-IV.ind.null$V.hat
     invI.ind.i<-solve(I.ind.null)
     matA.ind.null[i]<-Matrix.AB(I.ind.null,as.matrix(V.ind.null),2)$Mat.A
     matB.ind.null[i]<-Matrix.AB(I.ind.null,as.matrix(V.ind.null),2)$Mat.B
     
     
-    df.statistics.ind[i, "Wald.na"] <- seq*2*matA.ind[i]*(MLE.ind[i,2]-theta.null)^2
-    df.statistics.ind[i, "Wald.rb"] <- seq*2*(matA.ind[i]^2)/matB.ind[i]*((MLE.ind[i,2]-theta.null)^2)
-    df.statistics.ind[i, "LR.na"] <- 2*(loglik.ABBA(param = MLE.ind[i,],data = data.ind)-loglik.ABBA(param = as.vector(MLE.null.ind[i,]),data = data.ind))
-    # df.statistics.ind[i, "LR.rb"] <- 2*matA.ind.i[i]/matB.ind.i[i]*(loglik.ABBA(param = MLE.ind.i,data = data.ind)-loglik.ABBA(param = as.vector(MLE.null),data = data.ind))
+    df.statistics.ind[i, "Wald.na"] <- seq*2*matA.ind.null[i]*(MLE.ind[i,2]-theta.null)^2
+    df.statistics.ind[i, "Wald.rb"] <- seq*2*(matA.ind.null[i]^2 / matB.ind.null[i])*(MLE.ind[i,2]-theta.null)^2
     mean.null<-Mean.True(MLE.null.ind[i,],xmat_222)
-    df.statistics.ind[i, "Score.na"] <- (sum(data.ind[,2]-mean.null[,2])+sum(data.ind[,3]-mean.null[,3]))^2 / (matA.ind.null[i]*seq*2)
+    df.statistics.ind[i, "Score.na"] <- (sum(data.ind[,2]-mean.null[,2]+data.ind[,3]-mean.null[,3]))^2 / (matA.ind.null[i]*seq*2)
     df.statistics.ind[i, "Score.rb"] <- (sum(data.ind[,2]-mean.null[,2])+sum(data.ind[,3]-mean.null[,3]))^2 / (matB.ind.null[i]*seq*2)
+    #use package to do testing
     
+    Y <- c(data.ind[,1],data.ind[,2],data.ind[,3],data.ind[,4])
+    df.ind = data.frame(Y,X,Z,G)
+    mod.1 <- glm(Y ~ X + Z + G, family = poisson(link = "log"), df.ind)
+    mod.0 <- glm(Y ~ Z + G, family = poisson(link = "log"), df.ind)
+    MLE.ind[i,]<-c( mod.1$coefficients[1],mod.1$coefficients[2],mod.1$coefficients[3],mod.1$coefficients[4])
+    MLE.null.ind[i,]<-c( mod.0$coefficients[1],theta.null,mod.0$coefficients[2],mod.0$coefficients[3])
     
-    # #wald.test(Sigma = cov(MLE.ind), b = t(MLE.ind.i), Terms = 2)
+    df.statistics.ind[i, "LR.na"] <- 2*( loglik.ABBA(param = MLE.ind[i,],data = data.ind)-loglik.ABBA(param = as.vector(MLE.null.ind[i,]),data = data.ind) )
+    df.statistics.ind[i, "LR.rb"] <- 2*(matA.ind[i]/matB.ind[i])*(loglik.ABBA(param =MLE.ind[i,],data = data.ind)-loglik.ABBA(param = as.vector(MLE.null.ind[i,]),data = data.ind))
     
-    matA.cor[i]<-Matrix.AB(I.cor.i,as.matrix(V.cor.i),2)$Mat.A
-    matB.cor[i]<-Matrix.AB(I.cor.i,as.matrix(V.cor.i),2)$Mat.B
-    cort.A[i]<-Matrix.AB(I.ind.i,as.matrix(V.cor.i),1)$Mat.A
-    cort.B[i]<-Matrix.AB(I.ind.i,as.matrix(V.cor.i),1)$Mat.B
-    corg.A[i]<-Matrix.AB(I.ind.i,as.matrix(V.cor.i),3)$Mat.A
-    corg.B[i]<-Matrix.AB(I.ind.i,as.matrix(V.cor.i),3)$Mat.B
-    cord.A[i]<-Matrix.AB(I.ind.i,as.matrix(V.cor.i),4)$Mat.A
-    cord.B[i]<-Matrix.AB(I.ind.i,as.matrix(V.cor.i),4)$Mat.B
-    
-    IV.cor.null<-Matrix.IV(cros.type=cros_type[1], mle.values=MLE.null.cor[i,], x.mat=xmat_222, seq.size=seq, data=data.cor)
-    I.cor.null<-IV.cor.null$I.hat
-    V.cor.null<-Matrix::forceSymmetric(IV.cor.null$V.hat,uplo="L")
-    invI.cor.i<-solve(I.cor.null)
-    matA.cor.null[i]<-Matrix.AB(I.cor.null,as.matrix(V.cor.null),2)$Mat.A
-    matB.cor.null[i]<-Matrix.AB(I.cor.null,as.matrix(V.cor.null),2)$Mat.B
-    
-    
-    
-    
-    df.statistics.cor[i, "Wald.na"] <- seq*2*matA.cor[i]*(MLE.cor[i,2]-theta.null)^2
-    df.statistics.cor[i, "Wald.rb"] <- seq*2*(matA.cor[i]^2)/matB.cor[i]*((MLE.cor[i,2]-theta.null)^2)
-    df.statistics.cor[i, "LR.na"] <- 2*(loglik.ABBA(param = MLE.cor[i,],data = data.cor)-loglik.ABBA(param = as.vector(MLE.null.cor[i,]),data = data.cor))
-    # df.statistics.cor[i, "LR.rb"] <- 2*matA.cor[i]/matB.cor[i]*(loglik.ABBA(param = MLE.cor.i,data = data.cor)-loglik.ABBA(param = as.vector(MLE.null),data = data.cor))
-    mean.null<-Mean.True(MLE.null.cor[i,],xmat_222)
-    df.statistics.cor[i, "Score.na"] <- (sum(data.cor[,2]-mean.null[,2])+sum(data.cor[,3]-mean.null[,3]))^2 / (matA.cor.null[i]*seq*2)
-    df.statistics.cor[i, "Score.rb"] <- (sum(data.cor[,2]-mean.null[,2])+sum(data.cor[,3]-mean.null[,3]))^2 / (matB.cor.null[i]*seq*2)
-    
-    # #Wald.naive
-    # Wald.na.ind<-seq.size*2*Mat.A*(theta.hat-theta.null)^2
-    # #Wald.robust
-    # Wald.rb<-seq.size*2*(Mat.A^2)*((theta.hat-theta.null)^2)/Mat.B
-    # #LR.naive
-    # MLE.null<-MLE.ABBAnull(data = data.ind, seq.size = seq,eta.null=0)
-    # LR.na<-2*(loglik.ABBA(param = MLE.ind.i,data = data.ind)-loglik.ABBA(param = as.vector(MLE.null),data = data.ind))
-    # #LR.robust
-    # LR.rb<-2*Mat.A*(loglik.ABBA(param = MLE.ind.i,data = data.ind)-loglik.ABBA(param = as.vector(MLE.null),data = data.ind))/Mat.B
-    # 
     }
 
+#========================================
+#main-correlated
+#result:to store result of each seq_size
+#========================================
+result.cor <- list();pvalue.cor<-list()
+#simulation for ABBA
+seq=100
+MLE.cor<-matrix(0, nrow = sim_time, ncol = length(param_222))
+MLE.null.cor<-matrix(0, nrow = sim_time, ncol = length(param_222))
+I.cor<-0 ;V.cor<-0; invI.cor<-0
+# Create df for statistics
+statistics.columns <- c("Wald.na","Wald.rb",'Score.na','Score.rb',"LR.na","LR.rb") 
+df.statistics.cor = data.frame(matrix(nrow = sim_time, ncol = length(statistics.columns))) 
+colnames(df.statistics.cor) <- statistics.columns
+matA.cor<-c();matB.cor<-c();matA.cor.null<-c();matB.cor.null<-c()
+X = c(rep(0,seq), rep(1,2*seq), rep(0,seq))
+Z = c(rep(0,seq), rep(1,seq), rep(0,seq), rep(1,seq))
+G = c(rep(0,2*seq), rep(1,2*seq))
 
+set.seed(7353)
+for (i in 1:sim_time){
+  #====================================================
+  #I,V,IVI
+  #====================================================
+  theta.null=0
+  #independent
+  data.cor<-Data.cor(cros.type = cros_type[1],mean.true =mean_true,seq.size =seq,cor.par = cor_par )
+  
+  #use closeform to do testing
+  MLE.cor[i,]<- MLE.ABBA(data.cor)
+  MLE.null.cor[i,]<-MLE.ABBAnull(data = data.cor, seq.size = seq, eta.null=theta.null)
+  mean.est<-Mean.True(MLE.cor[i,],xmat_222)
+  IV.cor.i<-Matrix.IV(cros.type=cros_type[1], mle.values=MLE.cor[i,], x.mat=xmat_222, seq.size=seq, data=data.cor)
+  
+  #store result of MLE,I,V,inv.I
+  I.cor.i<-IV.cor.i$I.hat
+  V.cor.i<-IV.cor.i$V.hat
+  invI.cor.i<-solve(I.cor.i)
+  I.cor<-I.cor+I.cor.i
+  V.cor<-V.cor+V.cor.i
+  invI.cor<-invI.cor+invI.cor.i
+  
+  #=========================================================================
+  #output:matrix AB, Wald statistics,LR statistics, Score statistics
+  #=========================================================================
+  matA.cor[i]<-Matrix.AB(I.cor.i,as.matrix(V.cor.i),2)$Mat.A
+  matB.cor[i]<-Matrix.AB(I.cor.i,as.matrix(V.cor.i),2)$Mat.B
+  
+  IV.cor.null<-Matrix.IV(cros.type=cros_type[1], mle.values=MLE.null.cor[i,], x.mat=xmat_222, seq.size=seq, data=data.cor)
+  I.cor.null<-IV.cor.null$I.hat
+  V.cor.null<-IV.cor.null$V.hat
+  invI.cor.i<-solve(I.cor.null)
+  matA.cor.null[i]<-Matrix.AB(I.cor.null,as.matrix(V.cor.null),2)$Mat.A
+  matB.cor.null[i]<-Matrix.AB(I.cor.null,as.matrix(V.cor.null),2)$Mat.B
+  
+  
+  df.statistics.cor[i, "Wald.na"] <- seq*2*matA.cor.null[i]*(MLE.cor[i,2]-theta.null)^2
+  df.statistics.cor[i, "Wald.rb"] <- seq*2*(matA.cor.null[i]^2 / matB.cor.null[i])*(MLE.cor[i,2]-theta.null)^2
+  mean.null<-Mean.True(MLE.null.cor[i,],xmat_222)
+  df.statistics.cor[i, "Score.na"] <- (sum(data.cor[,2]-mean.null[,2]+data.cor[,3]-mean.null[,3]))^2 / (matA.cor.null[i]*seq*2)
+  df.statistics.cor[i, "Score.rb"] <- (sum(data.cor[,2]-mean.null[,2])+sum(data.cor[,3]-mean.null[,3]))^2 / (matB.cor.null[i]*seq*2)
+  #use package to do testing
+  
+  Y <- c(data.cor[,1],data.cor[,2],data.cor[,3],data.cor[,4])
+  df.cor = data.frame(Y,X,Z,G)
+  mod.1 <- glm(Y ~ X + Z + G, family = poisson(link = "log"), df.cor)
+  mod.0 <- glm(Y ~ Z + G, family = poisson(link = "log"), df.cor)
+  MLE.cor[i,]<-c( mod.1$coefficients[1],mod.1$coefficients[2],mod.1$coefficients[3],mod.1$coefficients[4])
+  MLE.null.cor[i,]<-c( mod.0$coefficients[1],theta.null,mod.0$coefficients[2],mod.0$coefficients[3])
+  
+  df.statistics.cor[i, "LR.na"] <- 2*( loglik.ABBA(param = MLE.cor[i,],data = data.cor)-loglik.ABBA(param = as.vector(MLE.null.cor[i,]),data = data.cor) )
+  df.statistics.cor[i, "LR.rb"] <- 2*(matA.cor[i]/matB.cor[i])*(loglik.ABBA(param =MLE.cor[i,],data = data.cor)-loglik.ABBA(param = as.vector(MLE.null.cor[i,]),data = data.cor))
+  
+}
+
+
+i.ep = matrix(c(i.ee, i.eg, i.ed), ncol = 3)
+i.pp = matrix(c(i.aa, i.gg, i.dd, i.gg, i.gg, i.gd, i.dd, 
+                i.gd, i.dd), nrow = 3, ncol = 3)
+A = i.ee - i.ep %*% solve(i.pp) %*% t(i.ep)
+v.pe = matrix(c(v.ae, v.eg, v.ed), nrow = 3)
+v.pp = matrix(c(v.aa, v.ag, v.ad, v.ag, v.gg, v.gd, v.ad, 
+                v.gd, v.dd), nrow = 3, ncol = 3)
+B = v.ee - 2 * i.ep %*% solve(i.pp) %*% v.pe + 
+  i.ep %*% solve(i.pp) %*% v.pp %*% solve(i.pp) %*% t(i.ep)
+
+s0 = n * ( mean(y12) - f.inv(alp.0[i]+ga.0[i]) +
+             mean(y21) - f.inv(alp.0[i]+del.0[i]) )
+sna = s0 / A * s0 / (2*n)
+srb = s0 / B * s0 / (2*n)
+if( sna <= qchisq(0.95, 1) )  S.na1 = S.na1+1
+if( srb <= qchisq(0.95, 1) )  S.rb1 = S.rb1+1
+#wald test
+wna = eta[i] * A * eta[i] * 2*n
+wrb = eta[i] * A^2 / B * eta[i] * 2*n
+if( wna<=qchisq(0.95, 1) )  W.na1 = W.na1+1
+if( wrb<=qchisq(0.95, 1) )  W.rb1 = W.rb1+1
   #=========================================
   #output for each seq.size:I, V, IVI
   #=========================================
