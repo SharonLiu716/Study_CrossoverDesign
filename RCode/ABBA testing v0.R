@@ -4,11 +4,11 @@ setwd("C:/Users/User/Documents/Study_CrossoverDesign/RCode")
 #simulation parameter
 #=============================================
 sim_time=5000;cor_par=1
-cros_type=c('ABBA','ABBBAA','AABABABAA','ABCBCACAB','BACACBBCA','BBAACBCAC')
+cros_type='ABBA'
 #=============================================
 #true value of params with treat-seq-time
 #=============================================
-param_222=c(0.4,0,-0.5,0.2)
+param=c(0.4,0,-0.5,0.2)
 #=================================================
 #Link of Yist:Y11,Y12,Y21,Y22
 #row is vector of param,column is x.mat of Yist
@@ -32,6 +32,7 @@ Matrix.I<-function(cros.type,params,x.mat){
   for (i in 1:length(params) ){ mat.I[i,]<-Mean%*%(t(x.mat)*x.mat[i,])/num.seq}
   return(mat.I)
 }
+Matrix.I('ABBA',param_222,xmat_222)
 #======================================================================
 #Generate data
 #======================================================================
@@ -82,20 +83,17 @@ Matrix.IV<-function(cros.type,mle.values,x.mat,seq.size,data){
   num.seq<-if (nchar(cros.type)==9) 3 else 2
   mat.I<- matrix(0, nrow = length(mle.values), ncol = length(mle.values))
   mat.V<- matrix(0, nrow = length(mle.values), ncol = length(mle.values))
-
+  mat.score<- matrix(0, nrow = seq.size, ncol = length(mle.values))
   est.mean<-exp(mle.values%*%x.mat)
-  
   for (i in 1:length(mle.values) ){ 
     mat.I[i,]<-est.mean%*%(t(x.mat)*x.mat[i,])/num.seq
-    mat.V[i,]<- colMeans(sweep(data, 2,  est.mean[1,])^2%*%(t(x.mat)*x.mat[i,]))/num.seq
+    mat.score[,i]<-sweep(data, 2, est.mean[1,])%*%x.mat[i,]
+    mat.V[i,]<- colSums(mat.score*mat.score[,i])/(seq.size*num.seq)
   }
-  
+  mat.V<-Matrix::forceSymmetric(mat.V,uplo="L")
   list.IV <- list("I.hat" = mat.I, "V.hat" =mat.V)
   return(list.IV) 
 }
-
-
-
 #===================================================================
 #Loglikelihood of ABBA,MLE.ABBA under H0,Matrix AB
 #===================================================================
@@ -108,8 +106,6 @@ loglik.ABBA<-function(param,data){
       +(param[1]+param[3]+param[4])*y.sum[4]-n*exp(param[1]+param[3]+param[4])   
   return(ll)
 }
-
-
 MLE.ABBAnull<-function(data,seq.size,eta.null){
   y.sum=colMeans(data)
   tao.hatnull<-log(y.sum[1])
@@ -125,8 +121,8 @@ Matrix.AB<-function(Mat.I,Mat.V,loc){
   I.tt<-diag.I[loc];V.tt<-diag.V[loc];I.pp<-Mat.I[-c(loc),-c(loc)];V.pp<-Mat.V[-c(loc),-c(loc)]
   I.tp<-as.matrix(Mat.I[loc,]);I.tp<-as.matrix(I.tp[-c(loc),]);V.tp<-as.matrix(Mat.V[loc,]);V.tp<-as.matrix(V.tp[-c(loc),])
   #mat.A
-  Mat.B<-I.tt-t(I.tp)%*%solve(I.pp)%*%I.tp
-  Mat.A<-V.tt-2*t(I.tp)%*%solve(I.pp)%*%V.tp+t(I.tp)%*%solve(I.pp)%*%V.pp%*%solve(I.pp)%*%I.tp
+  Mat.A<-I.tt-t(I.tp)%*%solve(I.pp)%*%I.tp
+  Mat.B<-V.tt-2*t(I.tp)%*%solve(I.pp)%*%V.tp+t(I.tp)%*%solve(I.pp)%*%V.pp%*%solve(I.pp)%*%I.tp
   Mat.AB<- list("Mat.A" = Mat.A, "Mat.B" =Mat.B)
   return(Mat.AB)
 }
@@ -164,6 +160,20 @@ for (i in 1:sim_time){
     MLE.ind[i,]<- MLE.ABBA(data.ind)
     MLE.null.ind[i,]<-MLE.ABBAnull(data = data.ind, seq.size = seq, eta.null=theta.null)
     mean.est<-Mean.True(MLE.ind[i,],xmat_222)
+    
+    #Matrix I & Matrix V
+    tao<-MLE.ind[i,1];eta<-MLE.ind[i,2];del<-MLE.ind[i,3];gam<-MLE.ind[i,4]
+    i.tt<-( exp(tao)+exp(tao+eta+gam))/2 + ( exp(tao+eta+del)+exp(tao+gam+del))/2
+    i.gg<- exp(tao+eta+gam)/2 + exp(tao+gam+del)/2
+    i.ee<- exp(tao+eta+gam)/2 + exp(tao+eta+del)/2
+    i.dd<- exp(tao+eta+del)/2 + exp(tao+gam+del)/2
+    i.eg<- exp(tao+eta+gam)/2 
+    i.ed<- exp(tao+eta+del)/2
+    i.gd<- exp(tao+gam+del)/2
+    I.ind.i<-matrix(c(i.tt,i.ee,i.gg,i.dd,
+                      i.ee,i.ee,i.eg,i.ed,
+                      i.gg,i.eg,i.gg,i.gd,
+                      i.dd,i.ed,i.gd,i.dd),nrow=4, ncol=4, byrow = TRUE)
     IV.ind.i<-Matrix.IV(cros.type=cros_type[1], mle.values=MLE.ind[i,], x.mat=xmat_222, seq.size=seq, data=data.ind)
   
     #store result of MLE,I,V,inv.I
@@ -317,6 +327,7 @@ if( wrb<=qchisq(0.95, 1) )  W.rb1 = W.rb1+1
   print(paste('cor',seq,sapply(df.statistics.cor, below)))
   
   invI.ind/sim_time
+  V.ind/sim_time
   cov(MLE.ind)*2*seq
   mean(matA.ind)
   mean(matB.ind)
