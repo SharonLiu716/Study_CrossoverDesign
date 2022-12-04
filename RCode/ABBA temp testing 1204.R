@@ -15,7 +15,7 @@ setwd("C:/Users/User/Documents/Study_CrossoverDesign/RCode")
 # - mean.true:平均數.真值
 # - X、Z、G:自變量，用來fit glm
 #===========================================================
-sim_time=10000;cor_par=1;seq=50
+sim_time=10000;cor_par=1;seq=100
 param=c(1.2,0,1.0,0.2)#c(1.2,0,1.0,0.2)#c(0.3,0,0.4,-1.0)
 xmat=matrix(c(1,1,1,1, 0,1,1,0, 0,1,0,1, 0,0,1,1), nrow = 4, ncol = 4,byrow = TRUE)
 mean.true=exp(param%*%xmat)
@@ -32,7 +32,7 @@ I.cf=0;V.cf=0;invI.closeform=0;I0.cf=0;V0.cf=0;invI0.closeform=0
 tao<-c();eta<-c();gam<-c();del<-c()
 tao.0<-c();eta.0<-c();gam.0<-c();del.0<-c()
 W.na1<-0;W.rb1<-0;LR.na1<-0;LR.rb1<-0;S.na1<-0;S.rb1<-0
-eta.var<-c()
+eta.var<-c();var.na<-c();var.rb<-c()
 #========================================================
 #independent data
 #========================================================
@@ -135,7 +135,8 @@ for (i in 1:sim_time){
                   v.gd, v.td), nrow = 3, ncol = 3)
   B = v.ee - 2 * i.ep %*% solve(i.pp) %*% v.pe + 
     i.ep %*% solve(i.pp) %*% v.pp %*% solve(i.pp) %*% t(i.ep)
-  
+  var.na[i]<-1/A
+  var.rb[i]<-B/A/A
   #確認eta的variance用odds ratio的方式算是否和invI得到的variance相近
   eta.var[i]<-0.25*(1/sum(y11)+1/sum(y12)+1/sum(y21)+1/sum(y22))
   #--------------------------------------------
@@ -239,8 +240,9 @@ I.cf/sim_time
 V.cf/sim_time
 (invI.closeform/sim_time) %*% (V.cf/sim_time) %*% (invI.closeform/sim_time)
 
-1/A
-B/A/A
+2*seq*var(log(eta))
+mean(var.na)
+mean(var.rb)
 mean(eta.var)*2*seq
 #p-value
 1-W.na1/sim_time
@@ -349,6 +351,8 @@ for (i in 1:sim_time){
   B = v.ee - 2 * i.ep %*% solve(i.pp) %*% v.pe + 
     i.ep %*% solve(i.pp) %*% v.pp %*% solve(i.pp) %*% t(i.ep)
   
+  var.na[i]<-1/A
+  var.rb[i]<-B/A/A
   
   #wald test
   wna = log(eta[i]) * A * log(eta[i]) * 2*seq
@@ -438,6 +442,27 @@ for (i in 1:sim_time){
   
 }
 
-MLE<-matrix(c(tao,eta,gam,del),nrow = length(tao),ncol = 4)
-colMeans(log(MLE))
-cov(log(MLE))*2*seq
+
+#MLE
+log(c(mean(tao),mean(eta),mean(gam),mean(del)))
+#sample variance of MLE
+cov.m<-2*seq*matrix(c(var(log(tao)),cov(log(tao),log(eta)),cov(log(tao),log(gam)),cov(log(tao),log(del)), 
+                      cov(log(tao),log(eta)),var(log(eta)),cov(log(gam),log(eta)),cov(log(del),log(eta)), 
+                      cov(log(tao),log(gam)),cov(log(gam),log(eta)),var(log(gam)),cov(log(gam),log(del)), 
+                      cov(log(tao),log(del)),cov(log(del),log(eta)),cov(log(gam),log(del)),var(log(del))), nrow = 4, ncol = 4,byrow = TRUE)
+#matrix I hat、V hat、invI*V*invI
+I.cf/sim_time
+V.cf/sim_time
+(invI.closeform/sim_time) %*% (V.cf/sim_time) %*% (invI.closeform/sim_time)
+
+2*seq*var(log(eta))
+mean(var.na)
+mean(var.rb)
+mean(eta.var)*2*seq
+#p-value
+1-W.na1/sim_time
+1-W.rb1/sim_time
+1-LR.na1/sim_time
+1-LR.rb1/sim_time
+1-S.na1/sim_time
+1-S.rb1/sim_time
