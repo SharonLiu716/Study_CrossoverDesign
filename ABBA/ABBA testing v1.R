@@ -51,32 +51,10 @@ for (i in 1:sim_time){
   y12<-rpois(seq, lambda = mean.true[2])
   y21<-rpois(seq, lambda = mean.true[3])
   y22<-rpois(seq, lambda = mean.true[4])
-  
-  
-  #用套件驗證推導式有沒有問題
-  # Y <- c(y11,y12,y21,y22)
-  # df.ind = data.frame(Y,X,Z,G)
-  # #---------------------------------
-  # #loglikelihood own define
-  # #---------------------------------
-  # negll <- function(param) { 
-  #   -sum( param[1]*y11-exp(param[1])+sum(param[1:3])*y12-exp(sum(param[1:3]))+(param[1]+param[2]+param[4])*y21-exp(param[1]+param[2]+param[4])+(param[1]+param[3]+param[4])*y22-exp(param[1]+param[3]+param[4]) )}
-  # ABBA<-optim(param <- c(0.45, -0.05, 0.35, -0.25), negll, hessian=TRUE)
-  # MLE.optim[i,]<-ABBA$par
-  # I.optim<-I.optim+(ABBA$hessian)/(2*seq)
-  # invI.optim <-invI.optim+solve((ABBA$hessian)/(2*seq))
-  # #---------------------------------
-  # #GLM
-  # #---------------------------------
-  # mod.1 <- glm(Y ~ X + Z + G, family = poisson(link = "log"), df.ind)
-  # MLE.glm[i,]<-coef(mod.1)
-  # I.glm<-I.glm+solve(vcov(mod.1))/(2*seq)
-  # invI.glm <-invI.glm+vcov(mod.1)*(2*seq)
-  
-  
-  #---------------------------------
+
+  #-------------------------------------------------------
   #closeform MLE:exp(.)估計量為指數形式e.g. eta[i]=exp(eta)
-  #---------------------------------
+  #-------------------------------------------------------
   
   tao[i]<-mean(y11)
   eta[i]<-sqrt( sum(y12)*sum(y21)/(sum(y11)*sum(y22)) )
@@ -258,25 +236,9 @@ mean.cor<-matrix(0, nrow = seq, ncol = nchar('ABBA'))
 data.cor<-matrix(0, nrow = seq, ncol = nchar('ABBA'))
 set.seed(110225021)
 for (i in 1:sim_time){
-  #方法1:用random effect生成相關性資料:容易生出很多值為0的資料所以換下方法2
-  #  nui<-replicate(2,rgamma(n=seq,shape=1/cor_par,scale=cor_par))
-  #  mean.cor[,1]<-mean.true[,1]*nui[,1]
-  #  mean.cor[,2]<-mean.true[,2]*nui[,1]
-  #  mean.cor[,3]<-mean.true[,3]*nui[,2]
-  #  mean.cor[,4]<-mean.true[,4]*nui[,2]
-  #  
-  #  for (i in 1:nchar('ABBA')){
-  #   list_poisson <- unlist(lapply(mean.cor[,i], FUN = function(x) rpois(1, x)))
-  #   data.cor[,i] <- list_poisson
-  # }
-  #  y11<-data.cor[,1];y12<-data.cor[,2];y21<-data.cor[,3];y22<-data.cor[,4]
   
-  #方法1:生成三個poisson其中一個poisson用來加上另外兩個poisson使得另外兩個poisson具有相關性(生成套件rbvpois)
-  # y1 <- rbvpois(seq, mean.true[1]-1,  mean.true[2]-1, 1.0)
-  # y2 <- rbvpois(seq, mean.true[3]-1,  mean.true[4]-1, 1.0)
-  # y11<-y1[,1];y12<-y1[,2];y21<-y2[,1];y22<-y2[,2]
   
-  #方法3:用copula生成相關性資料
+  #用copula生成相關性資料,rho=0.4
   l1 <- c(mean.true[1], mean.true[2]); l2 <- c(mean.true[3], mean.true[4]) # lambda for each new variable
   y1 <- genCorGen(seq, nvars = 2, params1 = l1, dist = "poisson", rho = .4, corstr = "cs", wide = TRUE,cnames='y11,y12')
   y1 <-as.matrix(y1[,c('y11','y12')])
@@ -364,11 +326,6 @@ for (i in 1:sim_time){
   lik<-function(par){ 
     ll=sum(log(par[1])*y11-par[1]+log(par[1]*par[2]*par[3])*y12-par[1]*par[2]*par[3])+
       sum(log(par[1]*par[2]*par[4])*y21-par[1]*par[2]*par[4]+ log(par[1]*par[3]*par[4])*y22-par[1]*par[3]*par[4])
-    
-    # ll= par[1]*sum(y11)-seq*exp(param[1])
-    #   +sum(par[1:3])*sum(y12)-seq*exp(sum(par[1:3]))
-    #   +(par[1]+par[2]+par[4])*sum(y21)-seq*exp(par[1]+par[2]+param[4])
-    #   +(par[1]+par[3]+par[4])*sum(y22)-seq*exp(param[1]+param[3]+param[4])   
     return(ll)
   }
   #null MLE
