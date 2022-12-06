@@ -15,7 +15,7 @@ setwd("C:/Users/User/Documents/Study_CrossoverDesign/RCode")
 # - mean.true:平均數.真值
 # - X、Z、G:自變量，用來fit glm
 #===========================================================
-sim_time=10000;cor_par=1;seq=100
+sim_time=10000;seq=100
 param=c(1.2,0,1.0,0.2)#c(1.2,0,1.0,0.2)#c(0.3,0,0.4,-1.0)
 xmat=matrix(c(1,1,1,1, 0,1,1,0, 0,1,0,1, 0,0,1,1), nrow = 4, ncol = 4,byrow = TRUE)
 mean.true=exp(param%*%xmat)
@@ -82,7 +82,8 @@ for (i in 1:sim_time){
   #確認covariance和R計算的covariance是否相同，下方的V用自己算的covariance而非R內建的
   cov1<-mean( (y11-tao[i])*(y12-tao[i]*eta[i]*gam[i]) )
   cov2<-mean( (y21-tao[i]*eta[i]*del[i])*(y22-tao[i]*gam[i]*del[i]) )
-  
+  # cov1<-cov(y11,y12)
+  # cov2<-cov(y21,y22)
   v.tt = i.tt + cov1+cov2#cov(y11,y12)+cov(y21,y22)
   v.ee = i.ee
   v.gg = i.gg 
@@ -232,17 +233,15 @@ mean(eta.var)*2*seq
 #========================================================
 #correlated data
 #========================================================
-mean.cor<-matrix(0, nrow = seq, ncol = nchar('ABBA'))
-data.cor<-matrix(0, nrow = seq, ncol = nchar('ABBA'))
 set.seed(110225021)
 for (i in 1:sim_time){
   
   
   #用copula生成相關性資料,rho=0.4
   l1 <- c(mean.true[1], mean.true[2]); l2 <- c(mean.true[3], mean.true[4]) # lambda for each new variable
-  y1 <- genCorGen(seq, nvars = 2, params1 = l1, dist = "poisson", rho = .4, corstr = "cs", wide = TRUE,cnames='y11,y12')
+  y1 <- genCorGen(seq, nvars = 2, params1 = l1, dist = "poisson", rho = .7, corstr = "cs", wide = TRUE,cnames='y11,y12')
   y1 <-as.matrix(y1[,c('y11','y12')])
-  y2 <- genCorGen(seq, nvars = 2, params1 = l2, dist = "poisson", rho = .4, corstr = "cs", wide = TRUE,cnames='y21,y22')
+  y2 <- genCorGen(seq, nvars = 2, params1 = l2, dist = "poisson", rho = .7, corstr = "cs", wide = TRUE,cnames='y21,y22')
   y2 <-as.matrix(y2[,c('y21','y22')])
   y11<-y1[,1];y12<-y1[,2];y21<-y2[,1];y22<-y2[,2]
   Y <- c(y11,y12,y21,y22)
@@ -338,7 +337,9 @@ for (i in 1:sim_time){
   #null cov
   cov1<-mean( (y11-tao.0[i])*(y12-tao.0[i]*gam.0[i]) )
   cov2<-mean( (y21-tao.0[i]*del.0[i])*(y22-tao.0[i]*gam.0[i]*del.0[i]) )
-  
+  # cov1<-cov(y11,y12)
+  # cov2<-cov(y21,y22)
+ 
   #LR Test
   l1 = lik(c(tao[i], eta[i], gam[i], del[i]) )
   l0 = lik(c(tao.0[i], 1, gam.0[i], del.0[i]))
