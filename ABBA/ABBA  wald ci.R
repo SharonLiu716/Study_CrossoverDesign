@@ -289,7 +289,7 @@ for (i in 1:sim_time){
   LR.naup[i] = uniroot(LR.na, c(log(eta[i]),log(eta[i])+0.2))$root
   LR.nalw[i] = uniroot(LR.na, c(log(eta[i])-0.2,log(eta[i])))$root
   LRna.len[i] = LR.naup[i] - LR.nalw[i]
-  
+  LRna.cp[i] = ifelse((LR.nalw[i] < 0 & LR.naup[i] > 0), 1, 0)
   
   LR.rb <- function(e){
     mod <- glm(Y ~ Z + G + offset(e*X), family = poisson(link = "log"), df.ind)
@@ -302,16 +302,17 @@ for (i in 1:sim_time){
   }
   #LR.rb<-Vectorize( function(e) return(2* A/B *(l1-l(log(c(tao.0[i], exp(e), gam.0[i], del.0[i])))) - qchisq(0.95, 1)))
   LR.rbup[i] = uniroot(LR.rb, c(log(eta[i]),log(eta[i])+0.15))$root
-  LR.rblw[i] = uniroot(LR.rb, c(log(eta[i])-0.15,log(eta[i])))$root
+  LR.rblw[i] = uniroot(LR.rb, c(log(eta[i])-0.5,log(eta[i])))$root
   LRrb.len[i] = LR.rbup[i] - LR.rblw [i]
+  LRrb.cp[i] = ifelse((LR.rblw[i] < 0 & LR.rbup[i] > 0), 1, 0)
   #==========================================
   #Score Test
   #==========================================
-  # s0 = seq * ( mean(y12) - tao.0[i]*gam.0[i] + mean(y21)- tao.0[i]*del.0[i] )
-  # sna = s0 / A0 * s0 / (2*seq)
-  # srb = s0 / B0 * s0 / (2*seq)
-  # if( sna <= qchisq(0.95, 1) )  S.na1 = S.na1+1
-  # if( srb <= qchisq(0.95, 1) )  S.rb1 = S.rb1+1
+  s0 = seq * ( mean(y12) - tao.0[i]*gam.0[i] + mean(y21)- tao.0[i]*del.0[i] )
+  sna = s0 / A0 * s0 / (2*seq)
+  srb = s0 / B0 * s0 / (2*seq)
+  if( sna <= qchisq(0.95, 1) )  S.na1 = S.na1+1
+  if( srb <= qchisq(0.95, 1) )  S.rb1 = S.rb1+1
   # S.na <- function(e){
   #   
   #   mod <- glm(formula = Y~Z+G+offset(e*X),family = poisson, df.ind)
@@ -424,16 +425,26 @@ mean(eta.var)*2*seq
 1-S.na1/sim_time
 1-S.rb1/sim_time
 
-#Naive C.I.
+#Wald Naive C.I.
 mean(W.nalw)
 mean(W.naup)
 mean(Wna.len)
 sum(Wna.cp)/sim_time
-#Robust C.I.
+#Wald Robust C.I.
 mean(W.rblw)
 mean(W.rbup)
 mean(Wrb.len)
 sum(Wrb.cp)/sim_time
+#LR Naive C.I.
+mean(LR.nalw)
+mean(LR.naup)
+mean(LRna.len)
+sum(LRna.cp)/sim_time
+#LR Robust C.I.
+mean(LR.rblw)
+mean(LR.rbup)
+mean(LRrb.len)
+sum(LRrb.cp)/sim_time
 #========================================================
 #correlated data
 #========================================================

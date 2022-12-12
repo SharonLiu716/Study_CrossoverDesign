@@ -15,7 +15,7 @@ setwd("C:/Users/User/Documents/Study_CrossoverDesign/RCode")
 # - mean.true:平均數.真值
 # - X、Z、G:自變量，用來fit glm
 #===========================================================
-sim_time=10000;seq=100
+sim_time=10000;seq=150
 param=c(1.2,0,1.0,0.2)#c(1.2,0,1.0,0.2)#c(0.3,0,0.4,-1.0)
 xmat=matrix(c(1,1,1,1, 0,1,1,0, 0,1,0,1, 0,0,1,1), nrow = 4, ncol = 4,byrow = TRUE)
 mean.true=exp(param%*%xmat)
