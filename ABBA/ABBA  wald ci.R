@@ -19,9 +19,6 @@ sim_time=10000;seq=100
 param=c(1.2,0,1.0,0.2)#c(1.2,0,1.0,0.2)#c(0.3,0,0.4,-1.0)
 xmat=matrix(c(1,1,1,1, 0,1,1,0, 0,1,0,1, 0,0,1,1), nrow = 4, ncol = 4,byrow = TRUE)
 mean.true=exp(param%*%xmat)
-X = c(rep(0,seq), rep(1,2*seq), rep(0,seq))
-Z = c(rep(0,seq), rep(1,seq), rep(0,seq), rep(1,seq))
-G = c(rep(0,2*seq), rep(1,2*seq))
 
 MLE.optim<-matrix(0, nrow = sim_time, ncol = 4)
 MLE.glm<-matrix(0, nrow = sim_time, ncol = 4)
@@ -36,6 +33,8 @@ W.naup<-c();W.nalw<-c();Wna.len<-c();Wna.cp<-c()
 W.rbup<-c();W.rblw<-c();Wrb.len<-c();Wrb.cp<-c()
 LR.naup<-c();LR.nalw<-c();LRna.len<-c();LRna.cp<-c()
 LR.rbup<-c();LR.rblw<-c();LRrb.len<-c();LRrb.cp<-c()
+S.naup<-c();S.nalw<-c();Sna.len<-c();Sna.cp<-c()
+S.rbup<-c();S.rblw<-c();Srb.len<-c();Srb.cp<-c()
 eta.var<-c();var.na<-c();var.rb<-c()
 #========================================================
 #independent data
@@ -55,24 +54,24 @@ for (i in 1:sim_time){
   y12<-rpois(seq, lambda = mean.true[2])
   y21<-rpois(seq, lambda = mean.true[3])
   y22<-rpois(seq, lambda = mean.true[4])
-  
+  X = c(rep(0,seq), rep(1,2*seq), rep(0,seq))
+  Z = c(rep(0,seq), rep(1,seq), rep(0,seq), rep(1,seq))
+  G = c(rep(0,2*seq), rep(1,2*seq))
+  Y <- c(y11,y12,y21,y22)
+  df.ind = data.frame(Y,X,Z,G)
   #-------------------------------------------------------
   #closeform MLE:exp(.)估計量為指數形式e.g. eta[i]=exp(eta)
   #-------------------------------------------------------
-  
   tao[i]<-mean(y11)
   eta[i]<-sqrt( sum(y12)*sum(y21)/(sum(y11)*sum(y22)) )
   gam[i]<-sqrt( sum(y12)*sum(y22)/(sum(y11)*sum(y21)) )
   del[i]<-sqrt( sum(y21)*sum(y22)/(sum(y11)*sum(y12)) )
-  
-  
-  
+  #-------------------------------------------------------
   #Matrix I & Matrix V
+  #-------------------------------------------------------
   i.tt<-( tao[i]+tao[i]*eta[i]*gam[i] + tao[i]*eta[i]*del[i]+tao[i]*gam[i]*del[i] )/2
   i.gg<-( tao[i]*eta[i]*gam[i] + tao[i]*gam[i]*del[i] )/2 
-  
   i.ee<-( tao[i]*eta[i]*gam[i] + tao[i]*eta[i]*del[i] )/2 
-  
   i.dd<- ( tao[i]*eta[i]*del[i]+tao[i]*gam[i]*del[i] )/2
   i.eg<- ( tao[i]*eta[i]*gam[i] )/2
   i.ed<- ( tao[i]*eta[i]*del[i] )/2
@@ -83,7 +82,7 @@ for (i in 1:sim_time){
               i.dd,i.ed,i.gd,i.dd),nrow=4, ncol=4, byrow = TRUE)
   I.cf<-I.cf+I
   invI.closeform <- invI.closeform + solve(I)
-  #確認covariance和R計算的covariance是否相同，下方的V用自己算的covariance而非R內建的
+  
   cov1<-mean( (y11-tao[i])*(y12-tao[i]*eta[i]*gam[i]) )
   cov2<-mean( (y21-tao[i]*eta[i]*del[i])*(y22-tao[i]*gam[i]*del[i]) )
   
@@ -91,12 +90,9 @@ for (i in 1:sim_time){
   v.ee = i.ee
   v.gg = i.gg 
   v.dd = i.dd + cov2
-  
   v.te = i.ee + cov1/2+cov2/2
   v.tg = i.gg + cov1/2+cov2/2
   v.td = i.dd + cov1
-  
-  
   v.eg = i.eg + cov2/2
   v.ed = i.ed + cov2/2
   v.gd = i.gd + cov2/2
@@ -105,8 +101,9 @@ for (i in 1:sim_time){
                        v.te, v.ee, v.eg, v.ed, 
                        v.tg, v.eg, v.gg, v.gd,
                        v.td, v.ed, v.gd, v.td),nrow=4, ncol=4, byrow = TRUE)
-  
+  #-------------------------------------------------------
   #計算AB矩陣
+  #-------------------------------------------------------
   i.ep = matrix(c(i.ee, i.eg, i.ed), ncol = 3)
   i.pp = matrix(c(i.tt, i.gg, i.dd, i.gg, i.gg, i.gd, 
                   i.dd, i.gd, i.dd), nrow = 3, ncol = 3)
@@ -120,58 +117,50 @@ for (i in 1:sim_time){
   var.na[i]<-1/A
   var.rb[i]<-B/A/A
   
-  #=================================================
-  #wald test
-  #=================================================
-  wna = log(eta[i]) * A * log(eta[i]) * 2*seq
-  wrb = log(eta[i]) * A^2 / B * log(eta[i]) * 2*seq
-  if( wna<=qchisq(0.95, 1) )  W.na1 = W.na1+1
-  if( wrb<=qchisq(0.95, 1) )  W.rb1 = W.rb1+1
-  #--------------------------------------------
-  #LR confidence interval
-  #--------------------------------------------
-  
+  #===================================
+  #likelihood, par:[tao,eta,gam,del]
+  #===================================
   l<-function(par){ 
     ll=sum(par[1]*y11-exp(par[1])+(par[1]+par[2]+par[3])*y12-exp(par[1]+par[2]+par[3]))+
       sum((par[1]+par[2]+par[4])*y21-exp(par[1]+par[2]+par[4])+ (par[1]+par[3]+par[4])*y22-exp(par[1]+par[3]+par[4]))
     return(ll)
-    
   }
+  #===================================
   #null MLE:用GLE算null之下的MLE
-  Y <- c(y11,y12,y21,y22)
-  df.ind = data.frame(Y,X,Z,G)
+  #===================================
   mod.0 <- glm(Y ~ Z + G, family = poisson(link = "log"), df.ind)
   tao.0[i]<-exp(mod.0$coefficients[1])
   gam.0[i]<-exp(mod.0$coefficients[2])
   del.0[i]<-exp(mod.0$coefficients[3])
-  #計算null cov
-  cov1<-mean( (y11-tao.0[i])*(y12-tao.0[i]*gam.0[i]) )
-  cov2<-mean( (y21-tao.0[i]*del.0[i])*(y22-tao.0[i]*gam.0[i]*del.0[i]) )
   
+  #----------------------------------------
+  #Matrix I0 & Matrix V0
+  #----------------------------------------
   i0.tt<-( tao.0[i]+tao.0[i]*gam.0[i] + tao.0[i]*del[i]+tao[i]*gam[i]*del[i] )/2
   i0.gg<-( tao.0[i]*gam.0[i] + tao.0[i]*gam.0[i]*del.0[i] )/2 
-  
   i0.ee<-( tao.0[i]*gam.0[i] + tao.0[i]*del.0[i] )/2 
-  
   i0.dd<- ( tao.0[i]*del.0[i]+tao.0[i]*gam.0[i]*del.0[i] )/2
   i0.eg<- ( tao.0[i]*gam.0[i] )/2
   i0.ed<- ( tao.0[i]*del.0[i] )/2
   i0.gd<- ( tao.0[i]*gam.0[i]*del.0[i] )/2
-  
+  #----------------------------------------
+  #計算null cov
+  #----------------------------------------
+  cov1<-mean( (y11-tao.0[i])*(y12-tao.0[i]*gam.0[i]) )
+  cov2<-mean( (y21-tao.0[i]*del.0[i])*(y22-tao.0[i]*gam.0[i]*del.0[i]) )
   v0.tt = i0.tt + cov1+cov2
   v0.ee = i0.ee
   v0.gg = i0.gg 
   v0.dd.0 = i0.dd + cov2
-  
   v0.te = i0.ee + cov1/2+cov2/2
   v0.tg = i0.gg + cov1/2+cov2/2
   v0.td = i0.dd + cov2
-  
-  
   v0.eg = i0.eg + cov2/2
   v0.ed = i0.ed + cov2/2
   v0.gd = i0.gd + cov2/2
-  
+  #----------------------------------------
+  #計算A0B0
+  #----------------------------------------
   i0.ep = matrix(c(i0.ee, i0.eg, i0.ed), ncol = 3)
   i0.pp = matrix(c(i0.tt, i0.gg, i0.dd, i0.gg, i0.gg, i0.gd, 
                    i0.dd, i0.gd, i0.dd), nrow = 3, ncol = 3)
@@ -182,12 +171,108 @@ for (i in 1:sim_time){
                    v0.gd, v0.td), nrow = 3, ncol = 3)
   B0 = v0.ee - 2 * i0.ep %*% solve(i0.pp) %*% v0.pe + 
     i0.ep %*% solve(i0.pp) %*% v0.pp %*% solve(i0.pp) %*% t(i0.ep)
+  Eta<-log(eta[i])
+  #=================================================
+  #wald test
+  #=================================================
+  wna = log(eta[i]) * A * log(eta[i]) * 2*seq
+  wrb = log(eta[i]) * A^2 / B * log(eta[i]) * 2*seq
+  if( wna<=qchisq(0.95, 1) )  W.na1 = W.na1+1
+  if( wrb<=qchisq(0.95, 1) )  W.rb1 = W.rb1+1
   
+  #--------------------------------------------
+  #wald confidence interval
+  #--------------------------------------------
+  #W.eta = Vectorize( function(e) return( (e-log(eta[i]))^2 ))
+  
+  W.na <- function(e){
+    mod <- glm(formula = Y~Z+G+offset(e*X),family = poisson, df.ind)
+    t = exp(mod$coefficients[1])
+    g = exp(mod$coefficients[2])
+    d = exp(mod$coefficients[3])
+    ii.tt<-( t+t*exp(e)*g + t*exp(e)*d+t*g*d )/2
+    ii.gg<-( t*exp(e)*g + t*g*d )/2 
+    ii.ee<-( t*exp(e)*g + t*exp(e)*d )/2 
+    ii.dd<- ( t*exp(e)*d+t*g*d )/2
+    ii.eg<- ( t*exp(e)*g )/2
+    ii.ed<- ( t*exp(e)*d )/2
+    ii.gd<- ( t*g*d )/2
+    ii.ep = matrix(c(ii.ee, ii.eg, ii.ed), ncol = 3)
+    ii.pp = matrix(c(ii.tt, ii.gg, ii.dd, ii.gg, ii.gg, ii.gd, 
+                    ii.dd, ii.gd, ii.dd), nrow = 3, ncol = 3)
+    
+    AA = ii.ee - ii.ep %*% solve(ii.pp) %*% t(ii.ep)
+    
+    w.na = 2*seq * (log(eta[i])-e)^2 * AA - qchisq(0.95, 1)
+    return(w.na)
+  }
+  #W.na = Vectorize( function(e) return(2*seq * (log(eta[i])-e)^2 * A0 - qchisq(0.95, 1)))
+  
+  #lower and upper
+  W.naup[i]<-uniroot(W.na,c(log(eta[i]),log(eta[i])+0.3))$root
+  W.nalw[i]<-uniroot(W.na,c(log(eta[i])-0.3,log(eta[i])))$root
+  Wna.len[i] = W.naup[i] -  W.nalw[i]
+  Wna.cp[i] = ifelse((W.nalw[i] < 0 & W.naup[i] > 0), 1, 0)
+  
+  W.rb <- function(e){
+    mod <- glm(formula = Y~Z+G+offset(e*X),family = poisson, df.ind)
+    t = exp(mod$coefficients[1])
+    g = exp(mod$coefficients[2])
+    d = exp(mod$coefficients[3])
+    ii.tt<-( t+t*exp(e)*g + t*exp(e)*d+t*g*d )/2
+    ii.gg<-( t*exp(e)*g + t*g*d )/2 
+    ii.ee<-( t*exp(e)*g + t*exp(e)*d )/2 
+    ii.dd<- ( t*exp(e)*d+t*g*d )/2
+    ii.eg<- ( t*exp(e)*g )/2
+    ii.ed<- ( t*exp(e)*d )/2
+    ii.gd<- ( t*g*d )/2
+    
+    ii.ep = matrix(c(ii.ee, ii.eg, ii.ed), ncol = 3)
+    ii.pp = matrix(c(ii.tt, ii.gg, ii.dd, ii.gg, ii.gg, ii.gd, 
+                     ii.dd, ii.gd, ii.dd), nrow = 3, ncol = 3)
+    AA = ii.ee - ii.ep %*% solve(ii.pp) %*% t(ii.ep)
+    
+    cov.1<-mean( (y11-t)*(y12-t*exp(e)*g) )
+    cov.2<-mean( (y21-t*exp(e)*d)*(y22-t*g*d) )
+    
+    vv.tt = i.tt + cov.1+cov.2
+    vv.ee = i.ee
+    vv.gg = i.gg 
+    vv.dd = i.dd + cov.2
+    vv.te = i.ee + cov.1/2+cov.2/2
+    vv.tg = i.gg + cov.1/2+cov.2/2
+    vv.td = i.dd + cov.1
+    vv.eg = i.eg + cov.2/2
+    vv.ed = i.ed + cov.2/2
+    vv.gd = i.gd + cov.2/2
+    
+    vv.pe = matrix(c(vv.te, vv.eg, vv.ed), nrow = 3)
+    vv.pp = matrix(c(vv.tt, vv.tg, vv.td, v.tg, v.gg, v.gd, v.td, 
+                    vv.gd, vv.td), nrow = 3, ncol = 3)
+    BB = vv.ee - 2 * ii.ep %*% solve(ii.pp) %*% vv.pe + 
+      ii.ep %*% solve(ii.pp) %*% vv.pp %*% solve(ii.pp) %*% t(ii.ep)
+    
+    w.rb = 2*seq * (log(eta[i])-e)^2 * AA^2/BB - qchisq(0.95, 1)
+    return(w.rb)
+  }
+  #W.rb = Vectorize( function(e) return(2*seq * (log(eta[i])-e)^2 * A0^2/B0 - qchisq(0.95, 1)))
+  W.rbup[i]<-uniroot(W.rb,c(log(eta[i]),log(eta[i])+0.3))$root
+  W.rblw[i]<-uniroot(W.rb,c(log(eta[i])-0.3,log(eta[i])))$root
+  Wrb.len[i] = W.rbup[i] -  W.rblw[i]
+  Wrb.cp[i] = ifelse((W.rblw[i] < 0 & W.rbup[i] > 0), 1, 0)
+  
+  
+  # 
+  #=================================================
+  #LR Test
+  #=================================================
   l1 = l(log(c(tao[i], eta[i], gam[i], del[i])) )
-  l0 = l(log(c(tao.0[i], 1, gam.0[i], del.0[i])))
+  l0 = l(log(c(tao.0[i], 1, gam.0[i], del.0[i])) )
   if( (2*(l1-l0))<=qchisq(0.95, 1) )  LR.na1 = LR.na1+1
   if( (2*A/B*(l1-l0))<=qchisq(0.95, 1) )  LR.rb1 = LR.rb1+1
- 
+  #--------------------------------------------
+  #LR confidence interval
+  #--------------------------------------------
   
   LR.na <- function(e){
     mod <- glm(Y ~ Z + G + offset(e*X), family = poisson(link = "log"), df.ind)
@@ -205,6 +290,7 @@ for (i in 1:sim_time){
   LR.nalw[i] = uniroot(LR.na, c(log(eta[i])-0.2,log(eta[i])))$root
   LRna.len[i] = LR.naup[i] - LR.nalw[i]
   
+  
   LR.rb <- function(e){
     mod <- glm(Y ~ Z + G + offset(e*X), family = poisson(link = "log"), df.ind)
     a = mod$coefficients[1]
@@ -218,32 +304,104 @@ for (i in 1:sim_time){
   LR.rbup[i] = uniroot(LR.rb, c(log(eta[i]),log(eta[i])+0.15))$root
   LR.rblw[i] = uniroot(LR.rb, c(log(eta[i])-0.15,log(eta[i])))$root
   LRrb.len[i] = LR.rbup[i] - LR.rblw [i]
-  #--------------------------------------------
-  #wald confidence interval
-  #--------------------------------------------
-  #W.eta = Vectorize( function(e) return( (e-log(eta[i]))^2 ))
-  W.na = Vectorize( function(e) return(2*seq * (log(eta[i])-e)^2 * A0 - qchisq(0.95, 1)))
+  #==========================================
+  #Score Test
+  #==========================================
+  # s0 = seq * ( mean(y12) - tao.0[i]*gam.0[i] + mean(y21)- tao.0[i]*del.0[i] )
+  # sna = s0 / A0 * s0 / (2*seq)
+  # srb = s0 / B0 * s0 / (2*seq)
+  # if( sna <= qchisq(0.95, 1) )  S.na1 = S.na1+1
+  # if( srb <= qchisq(0.95, 1) )  S.rb1 = S.rb1+1
+  # S.na <- function(e){
+  #   
+  #   mod <- glm(formula = Y~Z+G+offset(e*X),family = poisson, df.ind)
+  #   t = exp(mod$coefficients[1])
+  #   g = exp(mod$coefficients[2])
+  #   d = exp(mod$coefficients[3])
+  #   ii.tt<-( t+t*exp(e)*g + t*exp(e)*d+t*g*d )/2
+  #   ii.gg<-( t*exp(e)*g + t*g*d )/2 
+  #   ii.ee<-( t*exp(e)*g + t*exp(e)*d )/2 
+  #   ii.dd<- ( t*exp(e)*d+t*g*d )/2
+  #   ii.eg<- ( t*exp(e)*g )/2
+  #   ii.ed<- ( t*exp(e)*d )/2
+  #   ii.gd<- ( t*g*d )/2
+  #   
+  #   ii.ep = matrix(c(ii.ee, ii.eg, ii.ed), ncol = 3)
+  #   ii.pp = matrix(c(ii.tt, ii.gg, ii.dd, ii.gg, ii.gg, ii.gd, 
+  #                    ii.dd, ii.gd, ii.dd), nrow = 3, ncol = 3)
+  #   AA = ii.ee - ii.ep %*% solve(ii.pp) %*% t(ii.ep)
+  #   
+  #   ss0 = seq * ( mean(y12) - t*g + mean(y21)- t*d )
+  #   s.na = ss0 / AA * ss0 / (2*seq)- qchisq(0.95, 1)
+  #   return(s.na)
+  # }
+  # ss0 = Vectorize( function(e) return( seq * ( mean(y12) - tao.0[i]*exp(e)*gam.0[i] + mean(y21)- tao.0[i]*exp(e)*del.0[i] )))
+  # s.na = Vectorize( function(e) return(  ss0(e) / A0 * ss0(e) / (2*seq))- qchisq(0.95, 1))
+  # 
+  # S.na<-Vectorize( function(e) return(2*(l1-l(log(c(tao.0[i], exp(e), gam.0[i], del.0[i])))) - qchisq(0.95, 1)))
+  # 
+  # 
+  # S.naup[i] = uniroot(S.na, c(log(eta[i]),log(eta[i])+0.1))$root
+  # S.nalw[i] = uniroot(S.na, c(log(eta[i])-0.8,log(eta[i])))$root
+  # Sna.len[i] = S.naup[i] - S.nalw[i]
+  # 
+  # S.rb <- function(e){
+  #   mod <- glm(formula = Y~Z+G+offset(e*X),family = poisson, df.ind)
+  #   t = exp(mod$coefficients[1])
+  #   g = exp(mod$coefficients[2])
+  #   d = exp(mod$coefficients[3])
+  #   ii.tt<-( t+t*exp(e)*g + t*exp(e)*d+t*g*d )/2
+  #   ii.gg<-( t*exp(e)*g + t*g*d )/2 
+  #   ii.ee<-( t*exp(e)*g + t*exp(e)*d )/2 
+  #   ii.dd<- ( t*exp(e)*d+t*g*d )/2
+  #   ii.eg<- ( t*exp(e)*g )/2
+  #   ii.ed<- ( t*exp(e)*d )/2
+  #   ii.gd<- ( t*g*d )/2
+  #   
+  #   ii.ep = matrix(c(ii.ee, ii.eg, ii.ed), ncol = 3)
+  #   ii.pp = matrix(c(ii.tt, ii.gg, ii.dd, ii.gg, ii.gg, ii.gd, 
+  #                    ii.dd, ii.gd, ii.dd), nrow = 3, ncol = 3)
+  #   AA = ii.ee - ii.ep %*% solve(ii.pp) %*% t(ii.ep)
+  #   
+  #   cov.1<-mean( (y11-t)*(y12-t*exp(e)*g) )
+  #   cov.2<-mean( (y21-t*exp(e)*d)*(y22-t*g*d) )
+  #   
+  #   vv.tt = i.tt + cov.1+cov.2
+  #   vv.ee = i.ee
+  #   vv.gg = i.gg 
+  #   vv.dd = i.dd + cov.2
+  #   vv.te = i.ee + cov.1/2+cov.2/2
+  #   vv.tg = i.gg + cov.1/2+cov.2/2
+  #   vv.td = i.dd + cov.1
+  #   vv.eg = i.eg + cov.2/2
+  #   vv.ed = i.ed + cov.2/2
+  #   vv.gd = i.gd + cov.2/2
+  #   
+  #   vv.pe = matrix(c(vv.te, vv.eg, vv.ed), nrow = 3)
+  #   vv.pp = matrix(c(vv.tt, vv.tg, vv.td, v.tg, v.gg, v.gd, v.td, 
+  #                    vv.gd, vv.td), nrow = 3, ncol = 3)
+  #   BB = vv.ee - 2 * ii.ep %*% solve(ii.pp) %*% vv.pe + 
+  #     ii.ep %*% solve(ii.pp) %*% vv.pp %*% solve(ii.pp) %*% t(ii.ep)
+  #   
+  #   
+  #  
+  #   ss0 = seq * ( mean(y12) - t*g + mean(y21)- t*d )
+  #   s.rb = ss0 / BB * ss0 / (2*seq)- qchisq(0.95, 1)
+  #   
+  #   return(s.rb)
+  # }
+  # S.rbup[i] = uniroot(S.rb, c(log(eta[i]),log(eta[i])+0.2))$root
+  # S.rblw[i] = uniroot(S.rb, c(log(eta[i])-0.2,log(eta[i])))$root
+  # Srb.len[i] = S.rbup[i] - S.rblw[i]
+  # curve(s.na,-0.1,0.1, n = 1000, lwd =3, col = "blue", cex.axis = 2, cex.lab = 1.5, main =  expression(paste("Wald function of ", mu), ylim = c(0,1)),
+  #       xlab = ~mu, ylab = "LR")
+  # abline(h = qchisq(0.95, df = 1)*A, lwd = 2, col = "red")
+  # abline(v = log(eta[i]), lwd = 2, col = "purple", lty = 2)
   
-  #lower and upper
-  W.naup[i]<-uniroot(W.na,c(log(eta[i]),log(eta[i])+0.3))$root
-  W.nalw[i]<-uniroot(W.na,c(log(eta[i])-0.3,log(eta[i])))$root
-  Wna.len[i] = W.naup[i] -  W.nalw[i]
-  Wna.cp[i] = ifelse((W.nalw[i] < 0 & W.naup[i] > 0), 1, 0)
-  
-  W.rb = Vectorize( function(e) return(2*seq * (log(eta[i])-e)^2 * A0^2/B0 - qchisq(0.95, 1)))
-  W.rbup[i]<-uniroot(W.rb,c(log(eta[i]),log(eta[i])+0.3))$root
-  W.rblw[i]<-uniroot(W.rb,c(log(eta[i])-0.3,log(eta[i])))$root
-  Wrb.len[i] = W.rbup[i] -  W.rblw[i]
-  Wrb.cp[i] = ifelse((W.rblw[i] < 0 & W.rbup[i] > 0), 1, 0)
-  
-  curve(LR.rb,-0.2,0.2, n = 1000, lwd =3, col = "blue", cex.axis = 2, cex.lab = 1.5, main =  expression(paste("Wald function of ", mu), ylim = c(0,1)),
-        xlab = ~mu, ylab = "LR")
-  abline(h = qchisq(0.95, df = 1)*A^2/B, lwd = 2, col = "red")
-  abline(v = log(eta[i]), lwd = 2, col = "purple", lty = 2)
 }
 
 #MLE
-log(c(mean(tao),mean(eta),mean(gam),mean(del)))
+log(c(mean(tao),mean(log(etap[i])),mean(gam),mean(del)))
 #sample variance of MLE
 cov.m<-2*seq*matrix(c(var(log(tao)),cov(log(tao),log(eta)),cov(log(tao),log(gam)),cov(log(tao),log(del)), 
                       cov(log(tao),log(eta)),var(log(eta)),cov(log(gam),log(eta)),cov(log(del),log(eta)), 
@@ -382,7 +540,7 @@ for (i in 1:sim_time){
   cov1<-mean( (y11-tao.0[i])*(y12-tao.0[i]*gam.0[i]) )
   cov2<-mean( (y21-tao.0[i]*del.0[i])*(y22-tao.0[i]*gam.0[i]*del.0[i]) )
   
-  l1 = lik(c(tao[i], eta[i], gam[i], del[i]) )
+  l1 = lik(c(tao[i], log(eta[i])[i], gam[i], del[i]) )
   l0 = lik(c(tao.0[i], 1, gam.0[i], del.0[i]))
   if( (2*(l1-l0))<=qchisq(0.95, 1) )  LR.na1 = LR.na1+1
   if( (2*A/B*(l1-l0))<=qchisq(0.95, 1) )  LR.rb1 = LR.rb1+1
@@ -394,28 +552,28 @@ for (i in 1:sim_time){
     
   }
   
-  # Profile likelihood of exp(eta)
-  # R.e = Vectorize( function(e) return(  ( l(log(c(tao[i], eta[i], gam[i], del[i])) )/l(log(c(tao.0[i], e, gam.0[i], del.0[i]))) ) ))
+  # Profile likelihood of exp(log(eta[i]))
+  # R.e = Vectorize( function(e) return(  ( l(log(c(tao[i], log(eta[i])[i], gam[i], del[i])) )/l(log(c(tao.0[i], e, gam.0[i], del.0[i]))) ) ))
   # Lambda function
-  # Eta <-  Vectorize( function(e) 2*R.e(e) )
+  # log(eta[i]) <-  Vectorize( function(e) 2*R.e(e) )
   #----------------------------------------
   # Wald approximation function for mu
   #-----------------------------------------
-  # hess.e <-  hessian(Eta , x = log(eta[i]))
+  # hess.e <-  hessian(log(eta[i]) , x = Eta)
   # 95% Confidence interval
   # lev <- 2*qchisq(0.95, df = 1)/hess.e
-  W.eta = Vectorize( function(e) return( (e-log(eta[i]))^2 ))
+  W.eta = Vectorize( function(e) return( (e-Eta)^2 ))
   # W.etaC = Vectorize( function(e) return(W.eta(e)-lev))
   W.na = Vectorize( function(e) return(2*seq * W.eta(e) * A - qchisq(0.95, 1)))
   #lower and upper
-  W.naup[i]<-uniroot(W.na,c(log(eta[i]),log(eta[i])+4))$root
-  W.nalw[i]<-uniroot(W.na,c(log(eta[i])-4,log(eta[i])))$root
+  W.naup[i]<-uniroot(W.na,c(Eta,Eta+4))$root
+  W.nalw[i]<-uniroot(W.na,c(Eta-4,Eta))$root
   Wna.len[i] = W.naup[i] -  W.nalw[i]
   Wna.cp[i] = ifelse((W.nalw[i] < 0 & W.naup[i] > 0), 1, 0)
   
   W.rb = Vectorize( function(e) return(2*seq * W.eta(e) * A^2/B - qchisq(0.95, 1)))
-  W.rbup[i]<-uniroot(W.rb,c(log(eta[i]),log(eta[i])+4))$root
-  W.rblw[i]<-uniroot(W.rb,c(log(eta[i])-4,log(eta[i])))$root
+  W.rbup[i]<-uniroot(W.rb,c(Eta,Eta+4))$root
+  W.rblw[i]<-uniroot(W.rb,c(Eta-4,Eta))$root
   # Wrb.len[i] = W.rbup[i] -  W.rblw[i]
   # Wrb.cp[i] = ifelse((W.rblw[i] < 0 & W.rbup[i] > 0), 1, 0)
   # 
@@ -429,12 +587,12 @@ for (i in 1:sim_time){
   # hess.e <-  hessian(Eta , x = eta[i])
   # # Threshold
   lev <- qchisq(0.95, df = 1)*B/A
-  # W.mu = Vectorize( function(e) return( (e-log(eta[i]))^2 ))
+  # W.mu = Vectorize( function(e) return( (e-Eta)^2 ))
   # 
   curve(W.rb,-0.2,0.2, n = 1000, lwd =3, col = "blue", cex.axis = 2, cex.lab = 1.5, main =  expression(paste("Wald function of ", e)),
       xlab = ~e, ylab = "Wald")
   abline(h = lev, lwd = 2, col = "red")
-  abline(v = log(eta[i]), lwd = 2, col = "purple", lty = 2)
+  abline(v = Eta, lwd = 2, col = "purple", lty = 2)
 }
 
 set.seed(110225021)
@@ -520,8 +678,8 @@ for (i in 1:sim_time){
   var.rb[i]<-B/A/A
   
   #wald test
-  wna = log(eta[i]) * A * log(eta[i]) * 2*seq
-  wrb = log(eta[i]) * A^2 / B * log(eta[i]) * 2*seq
+  wna = Eta * A * Eta * 2*seq
+  wrb = Eta * A^2 / B * Eta * 2*seq
   if( wna<=qchisq(0.95, 1) )  W.na1 = W.na1+1
   if( wrb<=qchisq(0.95, 1) )  W.rb1 = W.rb1+1
   
@@ -623,13 +781,13 @@ for (i in 1:sim_time){
     
     Aa = i.ee - i.ep %*% solve(i.pp) %*% t(i.ep)
     
-    w.na = 2*seq * (log(eta[i])-e)^2 * Aa - qchisq(0.95, 1)
+    w.na = 2*seq * (Eta-e)^2 * Aa - qchisq(0.95, 1)
     return(w.na)
   }
   
   #lower and upper
-  W.naup[i]<-uniroot(W.na,c(log(eta[i]),log(eta[i])+2))$root
-  W.nalw[i]<-uniroot(W.na,c(log(eta[i])-2,log(eta[i])))$root
+  W.naup[i]<-uniroot(W.na,c(Eta,Eta+2))$root
+  W.nalw[i]<-uniroot(W.na,c(Eta-2,Eta))$root
   Wna.len[i] = W.naup[i] -  W.nalw[i]
   Wna.cp[i] = ifelse((W.nalw[i] < 0 & W.naup[i] > 0), 1, 0)
   
@@ -682,8 +840,8 @@ for (i in 1:sim_time){
     return(w.rb)
   }
   #lower and upper
-  W.rbup[i]<-uniroot(W.rb,c(log(eta[i]),log(eta[i])+1))$root
-  W.rblw[i]<-uniroot(W.rb,c(log(eta[i])-1,log(eta[i])))$root
+  W.rbup[i]<-uniroot(W.rb,c(Eta,Eta+1))$root
+  W.rblw[i]<-uniroot(W.rb,c(Eta-1,Eta))$root
   Wrb.len[i] = W.rbup[i] -  W.rblw[i]
   Wrb.cp[i] = ifelse((W.rblw[i] < 0 & W.rbup[i] > 0), 1, 0)
 }
