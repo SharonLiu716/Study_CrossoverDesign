@@ -16,7 +16,7 @@ setwd("C:/Users/User/Documents/Study_CrossoverDesign/RCode")
 # - X、Z、G:自變量，用來fit glm
 #===========================================================
 sim_time=10000;seq=150
-param=c(1.2,0,1.0,0.2)#c(1.2,0,1.0,0.2)#c(0.3,0,0.4,-1.0)
+param=c(1.2,0,1.0,0.2)#c(0.3,0,0.4,-1.0)
 xmat=matrix(c(1,1,1,1, 0,1,1,0, 0,1,0,1, 0,0,1,1), nrow = 4, ncol = 4,byrow = TRUE)
 mean.true=exp(param%*%xmat)
 X = c(rep(0,seq), rep(1,2*seq), rep(0,seq))
@@ -184,7 +184,7 @@ for (i in 1:sim_time){
   v0.ed = i0.ed + cov2/2
   v0.gd = i0.gd + cov2/2
   
-  V0.cf<-V.cf+matrix( c(v0.tt, v0.te, v0.tg, v0.td,
+  V0.cf<-V0.cf+matrix( c(v0.tt, v0.te, v0.tg, v0.td,
                         v0.te, v0.ee, v.eg, v0.ed, 
                         v0.tg, v0.eg, v0.gg, v0.gd,
                         v0.td, v0.ed, v0.gd, v0.td),nrow=4, ncol=4, byrow = TRUE)
@@ -239,28 +239,28 @@ for (i in 1:sim_time){
   
   #用copula生成相關性資料,rho=0.4
   l1 <- c(mean.true[1], mean.true[2]); l2 <- c(mean.true[3], mean.true[4]) # lambda for each new variable
-  y1 <- genCorGen(seq, nvars = 2, params1 = l1, dist = "poisson", rho = .7, corstr = "cs", wide = TRUE,cnames='y11,y12')
+  y1 <- genCorGen(seq, nvars = 2, params1 = l1, dist = "poisson", rho = .4, corstr = "cs", wide = TRUE,cnames='y11,y12')
   y1 <-as.matrix(y1[,c('y11','y12')])
-  y2 <- genCorGen(seq, nvars = 2, params1 = l2, dist = "poisson", rho = .7, corstr = "cs", wide = TRUE,cnames='y21,y22')
+  y2 <- genCorGen(seq, nvars = 2, params1 = l2, dist = "poisson", rho = .4, corstr = "cs", wide = TRUE,cnames='y21,y22')
   y2 <-as.matrix(y2[,c('y21','y22')])
   y11<-y1[,1];y12<-y1[,2];y21<-y2[,1];y22<-y2[,2]
   Y <- c(y11,y12,y21,y22)
-  
+  df.cor = data.frame(Y,X,Z,G)
   #---------------------------------
   #closeform MLE:exp(.)
   #---------------------------------
-  # mod.1 <- glm(Y ~ X + Z + G, family = poisson(link = "log"), df.cor)
-  # tao[i]<-exp(mod.1$coefficients[1])
-  # eta[i]<-exp(mod.1$coefficients[2])
-  # gam[i]<-exp(mod.1$coefficients[3])
-  # del[i]<-exp(mod.1$coefficients[4])
+  mod.1 <- glm(Y ~ X + Z + G, family = poisson(link = "log"), df.cor)
+  tao[i]<-exp(mod.1$coefficients[1])
+  eta[i]<-exp(mod.1$coefficients[2])
+  gam[i]<-exp(mod.1$coefficients[3])
+  del[i]<-exp(mod.1$coefficients[4])
   
-  tao[i]<-mean(y11)
-  eta[i]<-sqrt( sum(y12)*sum(y21)/(sum(y11)*sum(y22)) )
-  gam[i]<-sqrt( sum(y12)*sum(y22)/(sum(y11)*sum(y21)) )
-  del[i]<-sqrt( sum(y21)*sum(y22)/(sum(y11)*sum(y12)) )
+  # tao[i]<-mean(y11)
+  # eta[i]<-sqrt( sum(y12)*sum(y21)/(sum(y11)*sum(y22)) )
+  # gam[i]<-sqrt( sum(y12)*sum(y22)/(sum(y11)*sum(y21)) )
+  # del[i]<-sqrt( sum(y21)*sum(y22)/(sum(y11)*sum(y12)) )
   
-  eta.var[i]<-0.25*(1/sum(y11)+1/sum(y12)+1/sum(y21)+1/sum(y22))
+  # eta.var[i]<-0.25*(1/sum(y11)+1/sum(y12)+1/sum(y21)+1/sum(y22))
   #Matrix I & Matrix V
   
   i.tt<-( tao[i]+tao[i]*eta[i]*gam[i] + tao[i]*eta[i]*del[i]+tao[i]*gam[i]*del[i] )/2
@@ -279,8 +279,8 @@ for (i in 1:sim_time){
   I.cf<-I.cf+I
   invI.closeform <- invI.closeform + solve(I)
   
-  cov1<-mean( (y11-tao[i])*(y12-tao[i]*eta[i]*gam[i]) )
-  cov2<-mean( (y21-tao[i]*eta[i]*del[i])*(y22-tao[i]*gam[i]*del[i]) )
+  cov1<-cov(y11,y12)#mean( (y11-tao[i])*(y12-tao[i]*eta[i]*gam[i]) )
+  cov2<-cov(y21,y22)#mean( (y21-tao[i]*eta[i]*del[i])*(y22-tao[i]*gam[i]*del[i]) )
   
   v.tt = i.tt + cov1+cov2#cov(y11,y12)+cov(y21,y22)
   v.ee = i.ee
@@ -314,22 +314,7 @@ for (i in 1:sim_time){
   
   var.na[i]<-1/A
   var.rb[i]<-B/A/A
-  
-  #wald test
-  wna = log(eta[i]) * A * log(eta[i]) * 2*seq
-  wrb = log(eta[i]) * A^2 / B * log(eta[i]) * 2*seq
-  if( wna<=qchisq(0.95, 1) )  W.na1 = W.na1+1
-  if( wrb<=qchisq(0.95, 1) )  W.rb1 = W.rb1+1
-  
-  #log LR test :par=exp(.)
-  lik<-function(par){ 
-    ll=sum(log(par[1])*y11-par[1]+log(par[1]*par[2]*par[3])*y12-par[1]*par[2]*par[3])+
-      sum(log(par[1]*par[2]*par[4])*y21-par[1]*par[2]*par[4]+ log(par[1]*par[3]*par[4])*y22-par[1]*par[3]*par[4])
-    return(ll)
-  }
   #null MLE
-  Y<-c(y11,y12,y21,y22)
-  df.cor = data.frame(Y,X,Z,G)
   mod.0 <- glm(Y ~ Z + G, family = poisson(link = "log"), df.cor)
   tao.0[i]<-exp(mod.0$coefficients[1])
   gam.0[i]<-exp(mod.0$coefficients[2])
@@ -337,14 +322,22 @@ for (i in 1:sim_time){
   #null cov
   cov1<-mean( (y11-tao.0[i])*(y12-tao.0[i]*gam.0[i]) )
   cov2<-mean( (y21-tao.0[i]*del.0[i])*(y22-tao.0[i]*gam.0[i]*del.0[i]) )
-  # cov1<-cov(y11,y12)
-  # cov2<-cov(y21,y22)
- 
+  #log LR test :par=exp(.)
+  lik<-function(par){ 
+    ll=sum(log(par[1])*y11-par[1]+log(par[1]*par[2]*par[3])*y12-par[1]*par[2]*par[3])+
+      sum(log(par[1]*par[2]*par[4])*y21-par[1]*par[2]*par[4]+ log(par[1]*par[3]*par[4])*y22-par[1]*par[3]*par[4])
+    return(ll)
+  }
+  
   #LR Test
   l1 = lik(c(tao[i], eta[i], gam[i], del[i]) )
   l0 = lik(c(tao.0[i], 1, gam.0[i], del.0[i]))
   if( (2*(l1-l0))<=qchisq(0.95, 1) )  LR.na1 = LR.na1+1
   if( (2*A/B*(l1-l0))<=qchisq(0.95, 1) )  LR.rb1 = LR.rb1+1
+  
+  # cov1<-cov(y11,y12)
+  # cov2<-cov(y21,y22)
+  
   
   #score test
   i0.tt<-( tao.0[i]+tao.0[i]*gam.0[i] + tao.0[i]*del[i]+tao[i]*gam[i]*del[i] )/2
@@ -377,7 +370,7 @@ for (i in 1:sim_time){
   v0.ed = i0.ed + cov2/2
   v0.gd = i0.gd + cov2/2
   
-  V0.cf<-V.cf+matrix( c(v0.tt, v0.te, v0.tg, v0.td,
+  V0.cf<-V0.cf+matrix( c(v0.tt, v0.te, v0.tg, v0.td,
                         v0.te, v0.ee, v.eg, v0.ed, 
                         v0.tg, v0.eg, v0.gg, v0.gd,
                         v0.td, v0.ed, v0.gd, v0.td),nrow=4, ncol=4, byrow = TRUE)
@@ -397,7 +390,11 @@ for (i in 1:sim_time){
   srb = s0 / B0 * s0 / (2*seq)
   if( sna <= qchisq(0.95, 1) )  S.na1 = S.na1+1
   if( srb <= qchisq(0.95, 1) )  S.rb1 = S.rb1+1
-  
+  #wald test
+  wna = log(eta[i]) * A0 * log(eta[i]) * 2*seq
+  wrb = log(eta[i]) * A0^2 / B0 * log(eta[i]) * 2*seq
+  if( wna<=qchisq(0.95, 1) )  W.na1 = W.na1+1
+  if( wrb<=qchisq(0.95, 1) )  W.rb1 = W.rb1+1
 }
 
 
