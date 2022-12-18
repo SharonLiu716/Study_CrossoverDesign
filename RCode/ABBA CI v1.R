@@ -784,3 +784,14 @@ mean(LR.rbup)
 mean(LR.rblw)
 mean(LRrb.len)
 sum(LRrb.cp)/sim_time
+
+#Score C.I.
+mean(S.naup)
+mean(S.nalw)
+mean(Sna.len)
+sum(Sna.cp)/sim_time
+
+mean(S.rbup)
+mean(S.rblw)
+mean(Srb.len)
+sum(Srb.cp)/sim_time
