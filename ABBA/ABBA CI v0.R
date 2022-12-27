@@ -4,7 +4,7 @@ require(numDeriv)
 require(MASS)
 require(extraDistr)
 require(simstudy)
-setwd("C:/Users/User/Documents/Study_CrossoverDesign/RCode")
+setwd("C:/Users/User/Documents/Study_CrossoverDesign/ABBA")
 #===========================================================
 #參數說明
 # - sim_time:模擬次數
@@ -15,7 +15,7 @@ setwd("C:/Users/User/Documents/Study_CrossoverDesign/RCode")
 # - mean.true:平均數.真值
 # - X、Z、G:自變量，用來fit glm
 #===========================================================
-sim_time=10000;seq=200
+sim_time=10000;seq=150
 param=c(1.2,0,1.0,0.2)#c(1.2,0,1.0,0.2)#c(0.3,0,0.4,-1.0)
 xmat=matrix(c(1,1,1,1, 0,1,1,0, 0,1,0,1, 0,0,1,1), nrow = 4, ncol = 4,byrow = TRUE)
 mean.true=exp(param%*%xmat)
@@ -365,8 +365,7 @@ for (i in 1:sim_time){
 }
 
 
-#MLE
-c(mean(tao),mean(eta),mean(gam),mean(del))
+
 #sample variance of MLE
 cov.m<-2*seq*matrix(c( var(tao),cov(tao,eta),cov(tao,gam),cov(tao,del), 
                       cov(tao,eta),var(eta),cov(gam,eta),cov(del,eta), 
@@ -376,6 +375,9 @@ cov.m<-2*seq*matrix(c( var(tao),cov(tao,eta),cov(tao,gam),cov(tao,del),
 I.cf/sim_time
 V.cf/sim_time
 (invI.closeform/sim_time) %*% (V.cf/sim_time) %*% (invI.closeform/sim_time)
+
+#MLE
+c(mean(tao),mean(eta),mean(gam),mean(del))
 
 2*seq*var(eta)
 mean(var.na)
